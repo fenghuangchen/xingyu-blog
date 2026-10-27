@@ -7,6 +7,7 @@ import {
   Check,
   ChevronLeft,
   Clock,
+  Code2,
   Eye,
   ImagePlus,
   Loader2,
@@ -31,6 +32,67 @@ const DEFAULT_CONTENT = `## 今天想记下的事
 - 今天学到了什么？
 - 有什么还没想明白？
 `;
+
+const CODE_LANGUAGE_BY_EXT: Record<string, string> = {
+  py: "python",
+  js: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  jsx: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+  java: "java",
+  c: "c",
+  h: "c",
+  cpp: "cpp",
+  cc: "cpp",
+  hpp: "cpp",
+  cs: "csharp",
+  go: "go",
+  rs: "rust",
+  rb: "ruby",
+  php: "php",
+  sql: "sql",
+  sh: "bash",
+  bash: "bash",
+  zsh: "bash",
+  json: "json",
+  yml: "yaml",
+  yaml: "yaml",
+  xml: "xml",
+  html: "xml",
+  vue: "xml",
+  svelte: "xml",
+  css: "css",
+  scss: "scss",
+  less: "less",
+  lua: "lua",
+  r: "r",
+  m: "objectivec",
+  swift: "swift",
+  kt: "kotlin",
+  dart: "dart",
+  toml: "ini",
+  ini: "ini",
+  conf: "ini",
+  md: "markdown",
+  txt: "text",
+};
+
+const CODE_EXTENSIONS = Object.keys(CODE_LANGUAGE_BY_EXT);
+const CODE_UPLOAD_ACCEPT = CODE_EXTENSIONS.map(
+  (extension) => `.${extension}`,
+).join(",");
+
+function languageForFile(name: string): string {
+  const extension = name.split(".").pop()?.toLowerCase() ?? "";
+  return CODE_LANGUAGE_BY_EXT[extension] ?? "text";
+}
+
+function isCodeFile(name: string): boolean {
+  const extension = name.split(".").pop()?.toLowerCase() ?? "";
+  return CODE_EXTENSIONS.includes(extension);
+}
 
 export function NoteEditor({
   initial,
@@ -60,7 +122,9 @@ export function NoteEditor({
   const [deleting, setDeleting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingCode, setUploadingCode] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const codeInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
 
   const minutes = estimateReadingMinutes(content);
@@ -167,6 +231,47 @@ export function NoteEditor({
       setError("图片上传失败，请稍后再试。");
     } finally {
       setUploadingImage(false);
+    }
+  }
+
+  async function uploadCode(file: File) {
+    if (uploadingCode) return;
+    setError("");
+
+    if (file.size > 300 * 1024) {
+      setError("代码文件不能超过 300KB。");
+      return;
+    }
+
+    setUploadingCode(true);
+    try {
+      const code = await file.text();
+
+      if (!code.trim()) {
+        setError("这个代码文件是空的。");
+        return;
+      }
+
+      if (code.length > 120000) {
+        setError("代码太长了，请控制在 12 万字符以内。");
+        return;
+      }
+
+      const language = languageForFile(file.name);
+      const backtickRuns = code.match(/`+/g) ?? [];
+      const longestRun = backtickRuns.reduce(
+        (longest, run) => Math.max(longest, run.length),
+        0,
+      );
+      const fence = "`".repeat(Math.max(3, longestRun + 1));
+
+      insertRaw(
+        `\n${fence}${language}\n${code.replace(/\s+$/g, "")}\n${fence}\n\n`,
+      );
+    } catch {
+      setError("代码文件读取失败，请换成 UTF-8 文本再试。");
+    } finally {
+      setUploadingCode(false);
     }
   }
 
@@ -422,6 +527,29 @@ export function NoteEditor({
                   if (file) void uploadImage(file);
                 }}
               />
+              <button
+                type="button"
+                onClick={() => codeInputRef.current?.click()}
+                title="上传代码文件，自动识别语言并高亮"
+                disabled={uploadingCode}
+              >
+                {uploadingCode ? (
+                  <Loader2 size={14} className="spin" />
+                ) : (
+                  <Code2 size={14} />
+                )}
+              </button>
+              <input
+                ref={codeInputRef}
+                type="file"
+                accept={CODE_UPLOAD_ACCEPT}
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void uploadCode(file);
+                }}
+              />
             </div>
 
             <span className="editor-toolbar-note">Markdown · 自动目录</span>
@@ -440,6 +568,22 @@ export function NoteEditor({
                 if (file) {
                   event.preventDefault();
                   void uploadImage(file);
+                }
+              }}
+              onDragOver={(event) => {
+                if (event.dataTransfer.types.includes("Files")) {
+                  event.preventDefault();
+                }
+              }}
+              onDrop={(event) => {
+                const file = event.dataTransfer.files?.[0];
+                if (!file) return;
+
+                event.preventDefault();
+                if (file.type.startsWith("image/")) {
+                  void uploadImage(file);
+                } else if (isCodeFile(file.name)) {
+                  void uploadCode(file);
                 }
               }}
               placeholder="从这里开始写……"
@@ -550,6 +694,8 @@ export function NoteEditor({
             <ul>
               <li>用 ## 分节，文章会自动生成目录。</li>
               <li>代码块支持高亮：三个反引号加语言名。</li>
+              <li>点工具栏的 &lt;/&gt; 上传 .py / .ts 等代码文件，会自动识别语言。</li>
+              <li>也可以把图片或代码文件直接拖进编辑区。</li>
               <li>摘要留空时，会从正文自动截取。</li>
               <li>保存草稿不会出现在公开站点。</li>
             </ul>

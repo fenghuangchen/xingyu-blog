@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "星屿手记 · 一个可以拥有自己小空间的毛玻璃个人博客",
+  "author": "祁茶",
   "engines": {
     "node": ">=24"
   },

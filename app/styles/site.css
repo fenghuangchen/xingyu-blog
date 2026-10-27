@@ -24,6 +24,150 @@
   );
 }
 
+.aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+  mix-blend-mode: screen;
+  opacity: 0.24;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.aurora-a {
+  top: -14vh;
+  left: -14vw;
+  width: 124vw;
+  height: 44vh;
+  background: linear-gradient(
+    102deg,
+    transparent 4%,
+    color-mix(in srgb, var(--accent-2) 58%, transparent) 32%,
+    color-mix(in srgb, var(--accent) 46%, transparent) 54%,
+    transparent 90%
+  );
+  transform: rotate(-7deg);
+  animation: auroraA 24s ease-in-out infinite alternate;
+}
+
+.aurora-b {
+  top: 26vh;
+  right: -28vw;
+  width: 108vw;
+  height: 40vh;
+  background: linear-gradient(
+    112deg,
+    transparent 8%,
+    color-mix(in srgb, var(--accent-3) 44%, transparent) 36%,
+    color-mix(in srgb, var(--accent-2) 48%, transparent) 62%,
+    transparent 94%
+  );
+  opacity: 0.18;
+  transform: rotate(12deg);
+  animation: auroraB 30s ease-in-out infinite alternate;
+}
+
+.aurora-c {
+  bottom: -18vh;
+  left: 8vw;
+  width: 92vw;
+  height: 36vh;
+  background: linear-gradient(
+    96deg,
+    transparent 6%,
+    color-mix(in srgb, var(--accent) 40%, transparent) 42%,
+    color-mix(in srgb, var(--accent-3) 28%, transparent) 68%,
+    transparent 92%
+  );
+  opacity: 0.14;
+  transform: rotate(-4deg);
+  animation: auroraC 27s ease-in-out infinite alternate;
+}
+
+.nebula {
+  position: absolute;
+  top: 46%;
+  left: 54%;
+  width: 136vmax;
+  height: 136vmax;
+  margin: -68vmax 0 0 -68vmax;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 18deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--accent-2) 22%, transparent) 42deg,
+    transparent 96deg,
+    color-mix(in srgb, var(--accent) 16%, transparent) 158deg,
+    transparent 214deg,
+    color-mix(in srgb, var(--accent-3) 12%, transparent) 286deg,
+    transparent 352deg
+  );
+  filter: blur(72px);
+  mix-blend-mode: screen;
+  opacity: 0.4;
+  animation: nebulaSpin 90s linear infinite;
+  will-change: transform;
+}
+
+.curtain {
+  position: absolute;
+  top: -8vh;
+  width: 52vw;
+  height: 78vh;
+  opacity: 0.32;
+  filter: blur(16px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    96deg,
+    transparent 0 58px,
+    color-mix(in srgb, var(--accent-2) 52%, transparent) 72px 118px,
+    transparent 132px 212px,
+    color-mix(in srgb, var(--accent-3) 38%, transparent) 226px 272px,
+    transparent 286px 366px
+  );
+  mask-image: linear-gradient(180deg, black 4%, transparent 82%);
+  -webkit-mask-image: linear-gradient(180deg, black 4%, transparent 82%);
+  transform-origin: top center;
+  animation: curtainSway 22s ease-in-out infinite alternate;
+}
+
+.curtain-a {
+  left: -10vw;
+}
+
+.curtain-b {
+  right: -14vw;
+  top: -2vh;
+  transform: scaleX(-1);
+  animation-delay: -8s;
+  animation-duration: 27s;
+  opacity: 0.19;
+}
+
+.site[data-preset="daylight"] .curtain {
+  mix-blend-mode: multiply;
+  opacity: 0.16;
+}
+
+.site[data-preset="daylight"] .nebula {
+  mix-blend-mode: multiply;
+  opacity: 0.18;
+}
+
+.site[data-preset="daylight"] .aurora {
+  mix-blend-mode: multiply;
+  opacity: 0.28;
+}
+
+.site[data-preset="daylight"] .aurora-b {
+  opacity: 0.2;
+}
+
+.site[data-preset="daylight"] .aurora-c {
+  opacity: 0.16;
+}
+
 .orb {
   position: absolute;
   border-radius: 50%;
