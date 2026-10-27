@@ -3668,3 +3668,128 @@
     transform: rotate(360deg);
   }
 }
+
+/* ---------------- AI persona carousel ---------------- */
+
+.persona-carousel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 104px;
+  flex: none;
+}
+
+.persona-frame {
+  position: relative;
+  width: 104px;
+  height: 104px;
+}
+
+.persona-slide {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  border-radius: 50%;
+  animation: personaIn 0.5s var(--ease) both;
+}
+
+.persona-slide .avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.persona-frame.is-ai .avatar-halo {
+  animation-duration: 9s;
+}
+
+.persona-badge {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  z-index: 5;
+  padding: 2px 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  border-radius: 6px;
+  background: var(--accent);
+  box-shadow: 0 3px 12px -4px rgba(0, 0, 0, 0.55);
+  color: #1b1420;
+  font-family: var(--mono);
+  font-size: 0.46rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.persona-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 1px;
+}
+
+.persona-dots button {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background-color: var(--card-2);
+  background-position: center;
+  background-size: cover;
+  opacity: 0.48;
+  transition: opacity 0.25s var(--ease), border-color 0.25s var(--ease),
+    transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+
+.persona-dots button:hover {
+  opacity: 0.85;
+}
+
+.persona-dots button.is-active {
+  opacity: 1;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 26%, transparent);
+  transform: scale(1.1);
+}
+
+.persona-name {
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+@keyframes personaIn {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .persona-dots button {
+    width: 13px;
+    height: 13px;
+  }
+
+  .persona-name {
+    font-size: 0.47rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .persona-slide {
+    animation: none;
+  }
+}

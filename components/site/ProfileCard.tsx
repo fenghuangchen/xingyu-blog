@@ -3,6 +3,7 @@ import { ArrowUpRight, MapPin, Sparkles } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import type { Site } from "@/lib/types";
 import { daysSince } from "@/lib/utils";
+import { PersonaCarousel } from "./PersonaCarousel";
 
 export function ProfileCard({
   site,
@@ -11,6 +12,8 @@ export function ProfileCard({
   site: Site;
   basePath: string;
 }) {
+  const showPersonas = basePath === "";
+
   return (
     <section className="profile-card glass">
       <div className="profile-orbit" aria-hidden="true">
@@ -19,11 +22,15 @@ export function ProfileCard({
       </div>
 
       <div className="profile-top">
-        <div className="avatar-frame">
-          <span className="avatar-halo" aria-hidden="true" />
-          <Avatar src={site.avatar} name={site.displayName} size={104} eager />
-          <span className="status-dot" title="在岛上" />
-        </div>
+        {showPersonas ? (
+          <PersonaCarousel avatar={site.avatar} name={site.displayName} />
+        ) : (
+          <div className="avatar-frame">
+            <span className="avatar-halo" aria-hidden="true" />
+            <Avatar src={site.avatar} name={site.displayName} size={104} eager />
+            <span className="status-dot" title="在岛上" />
+          </div>
+        )}
 
         <div className="profile-heading">
           <span className="profile-eyebrow">
