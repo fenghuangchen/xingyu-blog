@@ -1,6 +1,7 @@
 export type ThemePreset =
   | "nebula"
   | "sakura"
+  | "haze"
   | "aurora"
   | "dusk"
   | "daylight"

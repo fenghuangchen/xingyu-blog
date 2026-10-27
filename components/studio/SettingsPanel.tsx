@@ -735,7 +735,7 @@ export function SettingsPanel({ user }: { user: PublicUser }) {
                 <div className="settings-panel-head">
                   <span className="section-kicker">WALLPAPER</span>
                   <h2>底色</h2>
-                  <p>六套预设，决定整座岛的空气与光线。</p>
+                  <p>七套预设，决定整座岛的空气与光线。</p>
                 </div>
 
                 <div className="preset-grid">

@@ -37,6 +37,14 @@ export const THEME_PRESETS: ThemePresetMeta[] = [
     swatch: ["#160b16", "#a34a72", "#f0a6c0"],
   },
   {
+    id: "haze",
+    name: "雾霾蓝",
+    note: "灰蓝薄雾与静夜",
+    accent: "#a9c1d6",
+    mode: "dark",
+    swatch: ["#0e1a24", "#6f8fa8", "#a9c1d6"],
+  },
+  {
     id: "aurora",
     name: "极光",
     note: "深海青与极光绿",

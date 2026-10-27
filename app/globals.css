@@ -165,6 +165,24 @@ button {
   --accent-3: #c9a8e8;
 }
 
+.site[data-preset="haze"] {
+  --bg: #0e1a24;
+  --ink: #eef4fa;
+  --ink-soft: #b8c7d6;
+  --ink-faint: #8296aa;
+  --orb-1: #4f6b85;
+  --orb-2: #93b3c9;
+  --orb-3: #6f8fa8;
+  --accent-2: #b7c9dd;
+  --accent-3: #7fa8bf;
+  --card: rgba(221, 236, 248, 0.05);
+  --card-2: rgba(221, 236, 248, 0.08);
+  --hover: rgba(221, 236, 248, 0.07);
+  --line: rgba(200, 220, 238, 0.13);
+  --line-strong: rgba(200, 220, 238, 0.22);
+  --shadow: 0 26px 70px -32px rgba(0, 8, 16, 0.85);
+}
+
 .site[data-preset="aurora"] {
   --bg: #040f0e;
   --orb-1: #2fd4b0;
