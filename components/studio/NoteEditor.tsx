@@ -1,0 +1,495 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import {
+  Check,
+  ChevronLeft,
+  Clock,
+  Eye,
+  Loader2,
+  Save,
+  Trash2,
+} from "lucide-react";
+import { CoverArt } from "@/components/site/CoverArt";
+import type { Note, NoteStatus } from "@/lib/types";
+import {
+  CATEGORY_SUGGESTIONS,
+  COVER_OPTIONS,
+  estimateReadingMinutes,
+  normalizeTags,
+} from "@/lib/utils";
+
+const DEFAULT_CONTENT = `## 今天想记下的事
+
+从这里开始写。标题、列表、引用、表格和代码块都支持。
+
+> 写下来，是为了在很久以后，还能认出当时的自己。
+
+- 今天学到了什么？
+- 有什么还没想明白？
+`;
+
+export function NoteEditor({
+  initial,
+  publicBase,
+}: {
+  initial: Note | null;
+  publicBase: string;
+}) {
+  const router = useRouter();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [summary, setSummary] = useState(initial?.summary ?? "");
+  const [content, setContent] = useState(initial?.content ?? DEFAULT_CONTENT);
+  const [category, setCategory] = useState(initial?.category ?? "");
+  const [tagsText, setTagsText] = useState(initial?.tags.join(", ") ?? "");
+  const [cover, setCover] = useState(initial?.cover ?? "orbit");
+  const [pinned, setPinned] = useState(initial?.pinned ?? false);
+  const [status, setStatus] = useState<NoteStatus>(
+    initial?.status ?? "draft",
+  );
+
+  const [previewHtml, setPreviewHtml] = useState("");
+  const [previewing, setPreviewing] = useState(false);
+  const [tab, setTab] = useState<"write" | "preview">("write");
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  const minutes = estimateReadingMinutes(content);
+  const chars = content.replace(/\s/g, "").length;
+
+  useEffect(() => {
+    if (!content.trim()) {
+      setPreviewHtml("");
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setPreviewing(true);
+      try {
+        const response = await fetch("/api/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as { html?: string };
+        if (!cancelled) setPreviewHtml(data.html || "");
+      } catch {
+        // 请求被取消或网络波动时保持上一次预览
+      } finally {
+        if (!cancelled) setPreviewing(false);
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [content]);
+
+  useEffect(() => {
+    if (!saved) return;
+    const timer = window.setTimeout(() => setSaved(false), 2400);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
+
+  function insertSnippet(before: string, after = "", placeholder = "文字") {
+    const element = textareaRef.current;
+    const start = element?.selectionStart ?? content.length;
+    const end = element?.selectionEnd ?? content.length;
+    const selected = content.slice(start, end) || placeholder;
+    const next =
+      content.slice(0, start) + before + selected + after + content.slice(end);
+
+    setContent(next);
+    window.requestAnimationFrame(() => {
+      if (!element) return;
+      element.focus();
+      element.selectionStart = start + before.length;
+      element.selectionEnd = start + before.length + selected.length;
+    });
+  }
+
+  async function handleSave() {
+    if (saving) return;
+    setError("");
+
+    if (!title.trim()) {
+      setError("先给这篇笔记一个标题。");
+      return;
+    }
+
+    if (status === "published" && !content.trim()) {
+      setError("发布的笔记需要一些正文。");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        title,
+        summary,
+        content,
+        category,
+        tags: normalizeTags(tagsText),
+        cover,
+        pinned,
+        status,
+      };
+
+      const response = await fetch(
+        initial ? `/api/notes/${initial.id}` : "/api/notes",
+        {
+          method: initial ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        note?: Note;
+      };
+
+      if (!response.ok) {
+        setError(data.error || "保存失败，请稍后再试。");
+        return;
+      }
+
+      if (!initial && data.note?.id) {
+        router.replace(`/studio/notes/${data.note.id}`);
+        router.refresh();
+        return;
+      }
+
+      setSaved(true);
+      router.refresh();
+    } catch {
+      setError("网络开小差了，请稍后再试。");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!initial || deleting) return;
+    if (!window.confirm("删除后无法恢复，确定删除这篇笔记吗？")) return;
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/notes/${initial.id}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        router.push("/studio/notes");
+        router.refresh();
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const previewHref =
+    initial && status === "published"
+      ? `${publicBase}/notes/${initial.slug}`
+      : null;
+
+  return (
+    <div className="studio-page editor-page">
+      <div className="editor-topbar">
+        <Link href="/studio/notes" className="editor-back">
+          <ChevronLeft size={16} />
+          返回笔记
+        </Link>
+
+        <div className="editor-topbar-center">
+          <div className="segmented" role="group" aria-label="笔记状态">
+            <button
+              type="button"
+              className={status === "draft" ? "is-active" : ""}
+              onClick={() => setStatus("draft")}
+            >
+              草稿
+            </button>
+            <button
+              type="button"
+              className={status === "published" ? "is-active" : ""}
+              onClick={() => setStatus("published")}
+            >
+              发布
+            </button>
+          </div>
+          <span className="editor-save-state">
+            {saved ? (
+              <>
+                <Check size={13} /> 已保存
+              </>
+            ) : (
+              "改动会在保存后生效"
+            )}
+          </span>
+        </div>
+
+        <div className="editor-topbar-actions">
+          {previewHref ? (
+            <Link
+              href={previewHref}
+              className="btn btn-ghost btn-sm editor-preview-link"
+            >
+              <Eye size={14} />
+              查看
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 size={14} className="spin" />
+            ) : (
+              <Save size={14} />
+            )}
+            {saving
+              ? "保存中"
+              : status === "published"
+                ? "发布笔记"
+                : "保存草稿"}
+          </button>
+        </div>
+      </div>
+
+      {error ? <p className="form-error editor-error">{error}</p> : null}
+
+      <div className="editor-grid">
+        <div className="editor-main glass">
+          <div className="editor-head-fields">
+            <input
+              className="editor-title-input"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="给这篇笔记一个标题"
+              maxLength={120}
+              aria-label="笔记标题"
+            />
+            <input
+              className="editor-summary-input"
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+              placeholder="用一句话介绍这篇笔记（留空会自动截取正文）"
+              maxLength={200}
+              aria-label="笔记摘要"
+            />
+          </div>
+
+          <div className="editor-toolbar">
+            <div className="editor-tabs">
+              <button
+                type="button"
+                className={tab === "write" ? "is-active" : ""}
+                onClick={() => setTab("write")}
+              >
+                写作
+              </button>
+              <button
+                type="button"
+                className={tab === "preview" ? "is-active" : ""}
+                onClick={() => setTab("preview")}
+              >
+                预览
+              </button>
+            </div>
+
+            <div className="editor-tools" aria-label="插入 Markdown">
+              <button
+                type="button"
+                onClick={() => insertSnippet("## ", "", "小标题")}
+                title="二级标题"
+              >
+                H2
+              </button>
+              <button
+                type="button"
+                onClick={() => insertSnippet("**", "**", "加粗文字")}
+                title="加粗"
+              >
+                B
+              </button>
+              <button
+                type="button"
+                onClick={() => insertSnippet("> ", "", "引用")}
+                title="引用"
+              >
+                “
+              </button>
+              <button
+                type="button"
+                onClick={() => insertSnippet("- ", "", "列表项")}
+                title="无序列表"
+              >
+                •
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertSnippet("[", "](https://)", "链接文字")
+                }
+                title="链接"
+              >
+                ↗
+              </button>
+            </div>
+
+            <span className="editor-toolbar-note">Markdown · 自动目录</span>
+          </div>
+
+          <div className="editor-panes" data-tab={tab}>
+            <textarea
+              ref={textareaRef}
+              className="editor-textarea"
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              placeholder="从这里开始写……"
+              spellCheck={false}
+              aria-label="Markdown 正文"
+            />
+
+            <div className="editor-preview-pane">
+              <div className="editor-preview-label">
+                {previewing ? "正在渲染预览…" : "实时预览"}
+              </div>
+              {previewHtml ? (
+                <div
+                  className="prose editor-prose"
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              ) : (
+                <div className="editor-preview-empty">
+                  在左边写下一点什么，预览会出现在这里。
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="editor-foot">
+            <span>{chars} 字</span>
+            <span className="meta-dot" />
+            <span>
+              <Clock size={13} />约 {minutes} 分钟
+            </span>
+            <span className="meta-dot" />
+            <span>{status === "published" ? "发布后公开可见" : "仅自己可见"}</span>
+          </div>
+        </div>
+
+        <aside className="editor-side">
+          <div className="editor-side-card glass">
+            <span className="editor-side-title">封面</span>
+            <div className="cover-picker">
+              {COVER_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`cover-option${cover === option.id ? " is-active" : ""}`}
+                  onClick={() => setCover(option.id)}
+                  title={option.name}
+                  aria-pressed={cover === option.id}
+                >
+                  <CoverArt cover={option.id} />
+                  <span>{option.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="editor-side-card glass">
+            <span className="editor-side-title">归类</span>
+
+            <div className="field">
+              <label htmlFor="note-category">分类</label>
+              <input
+                id="note-category"
+                className="input"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                placeholder="AI / 阅读 / 茶事…"
+                list="category-options"
+                maxLength={24}
+              />
+              <datalist id="category-options">
+                {CATEGORY_SUGGESTIONS.map((item) => (
+                  <option value={item} key={item} />
+                ))}
+              </datalist>
+            </div>
+
+            <div className="field">
+              <label htmlFor="note-tags">标签</label>
+              <input
+                id="note-tags"
+                className="input"
+                value={tagsText}
+                onChange={(event) => setTagsText(event.target.value)}
+                placeholder="Agent, 记忆, RAG"
+                maxLength={120}
+              />
+              <span className="field-hint">用逗号分隔，最多 6 个</span>
+            </div>
+
+            <label className="switch-row">
+              <span>
+                <strong>置顶这篇</strong>
+                <small>会优先出现在首页与笔记列表</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={pinned}
+                onChange={(event) => setPinned(event.target.checked)}
+              />
+              <span className="switch-track" aria-hidden="true">
+                <span />
+              </span>
+            </label>
+          </div>
+
+          <div className="editor-side-card glass editor-tips">
+            <span className="editor-side-title">写作提示</span>
+            <ul>
+              <li>用 ## 分节，文章会自动生成目录。</li>
+              <li>代码块支持高亮：三个反引号加语言名。</li>
+              <li>摘要留空时，会从正文自动截取。</li>
+              <li>保存草稿不会出现在公开站点。</li>
+            </ul>
+          </div>
+
+          {initial ? (
+            <button
+              type="button"
+              className="btn btn-danger btn-sm editor-delete"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <Loader2 size={14} className="spin" />
+              ) : (
+                <Trash2 size={14} />
+              )}
+              删除这篇笔记
+            </button>
+          ) : null}
+        </aside>
+      </div>
+    </div>
+  );
+}

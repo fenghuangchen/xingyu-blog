@@ -1,0 +1,13 @@
+node_modules
+.next
+next-env.d.ts
+.git
+.gitignore
+data
+.env
+.env.local
+.env.*.local
+docs
+*.log
+tsconfig.tsbuildinfo
+.dsh-scratch

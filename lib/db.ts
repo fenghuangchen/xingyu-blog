@@ -1,0 +1,869 @@
+import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { hashPassword } from "./password";
+import {
+  SEED_MESSAGES,
+  SEED_MOMENTS,
+  SEED_NOTES,
+  OWNER_HANDLE,
+  OWNER_PASSWORD,
+  OWNER_SEED,
+  readSeedContent,
+} from "./seed";
+import { parseTheme } from "./theme";
+import type {
+  CreatorCard,
+  Message,
+  Moment,
+  Note,
+  NoteStatus,
+  NoteSummary,
+  PublicUser,
+  Site,
+  SiteStats,
+  SocialLink,
+  ThemeConfig,
+  UserRecord,
+} from "./types";
+import { estimateReadingMinutes, normalizeTags } from "./utils";
+
+type Row = Record<string, unknown>;
+
+const globalStore = globalThis as unknown as { __xingyuDb?: DatabaseSync };
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function int(value: unknown): number {
+  return Number(value ?? 0);
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseSocials(value: unknown): SocialLink[] {
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (item): item is SocialLink =>
+          Boolean(item) &&
+          typeof item.label === "string" &&
+          typeof item.url === "string",
+      )
+      .slice(0, 6);
+  } catch {
+    return [];
+  }
+}
+
+function mapUser(row: Row): UserRecord {
+  return {
+    id: text(row.id),
+    handle: text(row.handle),
+    email: row.email ? text(row.email) : null,
+    passwordHash: text(row.password_hash),
+    displayName: text(row.display_name),
+    siteTitle: text(row.site_title),
+    tagline: text(row.tagline),
+    bio: text(row.bio),
+    now: text(row.now),
+    location: text(row.location),
+    tags: parseStringArray(row.tags),
+    avatar: text(row.avatar),
+    socials: parseSocials(row.socials),
+    theme: parseTheme(row.theme),
+    createdAt: text(row.created_at),
+  };
+}
+
+function mapNote(row: Row): Note {
+  return {
+    id: text(row.id),
+    userId: text(row.user_id),
+    slug: text(row.slug),
+    title: text(row.title),
+    summary: text(row.summary),
+    content: text(row.content),
+    category: text(row.category),
+    tags: parseStringArray(row.tags),
+    cover: text(row.cover) || "orbit",
+    pinned: int(row.pinned) === 1,
+    status: text(row.status) === "draft" ? "draft" : "published",
+    views: int(row.views),
+    minutes: Math.max(1, int(row.minutes)),
+    createdAt: text(row.created_at),
+    updatedAt: text(row.updated_at),
+  };
+}
+
+function mapNoteSummary(row: Row): NoteSummary {
+  const { content: _content, ...rest } = mapNote(row);
+  return rest;
+}
+
+function mapMoment(row: Row): Moment {
+  return {
+    id: text(row.id),
+    userId: text(row.user_id),
+    content: text(row.content),
+    mood: text(row.mood),
+    createdAt: text(row.created_at),
+  };
+}
+
+function mapMessage(row: Row): Message {
+  return {
+    id: text(row.id),
+    siteUserId: text(row.site_user_id),
+    authorUserId: row.author_user_id ? text(row.author_user_id) : null,
+    authorName: text(row.author_name),
+    authorHandle: row.author_handle ? text(row.author_handle) : null,
+    content: text(row.content),
+    createdAt: text(row.created_at),
+  };
+}
+
+function toPublicUser(user: UserRecord): PublicUser {
+  const { passwordHash: _passwordHash, email: _email, ...rest } = user;
+  return rest;
+}
+
+function createSchema(db: DatabaseSync) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      handle TEXT NOT NULL UNIQUE,
+      email TEXT UNIQUE,
+      password_hash TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      site_title TEXT NOT NULL DEFAULT '',
+      tagline TEXT NOT NULL DEFAULT '',
+      bio TEXT NOT NULL DEFAULT '',
+      now TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      tags TEXT NOT NULL DEFAULT '[]',
+      avatar TEXT NOT NULL DEFAULT '',
+      socials TEXT NOT NULL DEFAULT '[]',
+      theme TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS notes (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      slug TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT '',
+      tags TEXT NOT NULL DEFAULT '[]',
+      cover TEXT NOT NULL DEFAULT 'orbit',
+      pinned INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'published',
+      views INTEGER NOT NULL DEFAULT 0,
+      minutes INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(user_id, slug)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notes_user
+      ON notes(user_id, status, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS moments (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      mood TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_moments_user
+      ON moments(user_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      site_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      author_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      author_name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_messages_site
+      ON messages(site_user_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+}
+
+function seedDatabase(db: DatabaseSync) {
+  const row = db.prepare("SELECT COUNT(*) AS count FROM users").get() as Row;
+  if (int(row.count) > 0) return;
+
+  db.exec("BEGIN");
+  try {
+    const now = new Date().toISOString();
+    const passwordHash = hashPassword(OWNER_PASSWORD);
+
+    db.prepare(
+      `INSERT INTO users
+        (id, handle, email, password_hash, display_name, site_title, tagline,
+         bio, now, location, tags, avatar, socials, theme, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      OWNER_SEED.id,
+      OWNER_SEED.handle,
+      OWNER_SEED.email,
+      passwordHash,
+      OWNER_SEED.displayName,
+      OWNER_SEED.siteTitle,
+      OWNER_SEED.tagline,
+      OWNER_SEED.bio,
+      OWNER_SEED.now,
+      OWNER_SEED.location,
+      JSON.stringify(OWNER_SEED.tags),
+      OWNER_SEED.avatar,
+      JSON.stringify(OWNER_SEED.socials),
+      JSON.stringify(OWNER_SEED.theme),
+      OWNER_SEED.createdAt,
+    );
+
+    const insertNote = db.prepare(
+      `INSERT INTO notes
+        (id, user_id, slug, title, summary, content, category, tags, cover,
+         pinned, status, views, minutes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+
+    for (const note of SEED_NOTES) {
+      const content = readSeedContent(note.file);
+      insertNote.run(
+        note.id,
+        OWNER_SEED.id,
+        note.slug,
+        note.title,
+        note.summary,
+        content,
+        note.category,
+        JSON.stringify(note.tags),
+        note.cover,
+        note.pinned ? 1 : 0,
+        note.status,
+        note.views,
+        estimateReadingMinutes(content),
+        note.createdAt,
+        note.updatedAt,
+      );
+    }
+
+    const insertMoment = db.prepare(
+      `INSERT INTO moments (id, user_id, content, mood, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    );
+
+    for (const moment of SEED_MOMENTS) {
+      insertMoment.run(
+        moment.id,
+        OWNER_SEED.id,
+        moment.content,
+        moment.mood,
+        moment.createdAt,
+      );
+    }
+
+    const insertMessage = db.prepare(
+      `INSERT INTO messages
+        (id, site_user_id, author_user_id, author_name, content, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+
+    for (const message of SEED_MESSAGES) {
+      insertMessage.run(
+        message.id,
+        OWNER_SEED.id,
+        null,
+        message.authorName,
+        message.content,
+        message.createdAt,
+      );
+    }
+
+    void now;
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+function initDatabase(): DatabaseSync {
+  const dir = process.env.DATA_DIR
+    ? path.resolve(process.env.DATA_DIR)
+    : path.join(process.cwd(), "data");
+
+  fs.mkdirSync(dir, { recursive: true });
+
+  const db = new DatabaseSync(path.join(dir, "xingyu.db"));
+  db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA foreign_keys = ON;");
+  createSchema(db);
+
+  const userColumns = db.prepare("PRAGMA table_info(users)").all() as Row[];
+  if (!userColumns.some((column) => text(column.name) === "site_title")) {
+    db.exec("ALTER TABLE users ADD COLUMN site_title TEXT NOT NULL DEFAULT ''");
+  }
+  db.exec(
+    "UPDATE users SET site_title = display_name || '的小岛' WHERE site_title = ''",
+  );
+
+  seedDatabase(db);
+
+  db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(
+    new Date().toISOString(),
+  );
+
+  return db;
+}
+
+export function getDb(): DatabaseSync {
+  if (!globalStore.__xingyuDb) {
+    globalStore.__xingyuDb = initDatabase();
+  }
+  return globalStore.__xingyuDb;
+}
+
+/* ------------------------------------------------------------------ */
+/* Users                                                               */
+/* ------------------------------------------------------------------ */
+
+export function getUserById(id: string): UserRecord | null {
+  const row = getDb().prepare("SELECT * FROM users WHERE id = ?").get(id) as
+    | Row
+    | undefined;
+  return row ? mapUser(row) : null;
+}
+
+export function getUserByHandle(handle: string): UserRecord | null {
+  const row = getDb()
+    .prepare("SELECT * FROM users WHERE handle = ?")
+    .get(handle.toLowerCase()) as Row | undefined;
+  return row ? mapUser(row) : null;
+}
+
+export function getUserByIdentifier(identifier: string): UserRecord | null {
+  const value = identifier.trim().toLowerCase();
+  const row = getDb()
+    .prepare("SELECT * FROM users WHERE handle = ? OR lower(email) = ?")
+    .get(value, value) as Row | undefined;
+  return row ? mapUser(row) : null;
+}
+
+export function createUser(input: {
+  handle: string;
+  displayName: string;
+  password: string;
+  email?: string | null;
+  theme?: ThemeConfig;
+}): UserRecord {
+  const id = `u_${randomUUID()}`;
+  const createdAt = new Date().toISOString();
+
+  getDb()
+    .prepare(
+      `INSERT INTO users
+        (id, handle, email, password_hash, display_name, site_title, tagline,
+         bio, now, location, tags, avatar, socials, theme, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, '', '', '', '', '[]', '', '[]', ?, ?)`,
+    )
+    .run(
+      id,
+      input.handle,
+      input.email ?? null,
+      hashPassword(input.password),
+      input.displayName,
+      `${input.displayName}的小岛`,
+      JSON.stringify(input.theme ?? {}),
+      createdAt,
+    );
+
+  return getUserById(id) as UserRecord;
+}
+
+export function updateUserProfile(
+  id: string,
+  input: {
+    displayName: string;
+    siteTitle: string;
+    tagline: string;
+    bio: string;
+    now: string;
+    location: string;
+    tags: string[];
+    avatar: string;
+    socials: SocialLink[];
+  },
+): UserRecord | null {
+  getDb()
+    .prepare(
+      `UPDATE users
+       SET display_name = ?, site_title = ?, tagline = ?, bio = ?, now = ?,
+           location = ?, tags = ?, avatar = ?, socials = ?
+       WHERE id = ?`,
+    )
+    .run(
+      input.displayName,
+      input.siteTitle,
+      input.tagline,
+      input.bio,
+      input.now,
+      input.location,
+      JSON.stringify(input.tags),
+      input.avatar,
+      JSON.stringify(input.socials),
+      id,
+    );
+
+  return getUserById(id);
+}
+
+export function updateUserTheme(
+  id: string,
+  theme: ThemeConfig,
+): UserRecord | null {
+  getDb()
+    .prepare("UPDATE users SET theme = ? WHERE id = ?")
+    .run(JSON.stringify(theme), id);
+  return getUserById(id);
+}
+
+export function updateUserPasswordHash(
+  id: string,
+  passwordHash: string,
+): boolean {
+  const result = getDb()
+    .prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+    .run(passwordHash, id);
+  return Number(result.changes) > 0;
+}
+
+export function countUsers(): number {
+  const row = getDb().prepare("SELECT COUNT(*) AS count FROM users").get() as Row;
+  return int(row.count);
+}
+
+/* ------------------------------------------------------------------ */
+/* Sites & stats                                                       */
+/* ------------------------------------------------------------------ */
+
+export function statsForUser(userId: string): SiteStats {
+  const row = getDb()
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM notes WHERE user_id = ? AND status = 'published') AS notes,
+         (SELECT COUNT(*) FROM notes WHERE user_id = ? AND status = 'draft') AS drafts,
+         (SELECT COUNT(*) FROM moments WHERE user_id = ?) AS moments,
+         (SELECT COUNT(*) FROM messages WHERE site_user_id = ?) AS messages,
+         (SELECT COALESCE(SUM(views), 0) FROM notes WHERE user_id = ?) AS views`,
+    )
+    .get(userId, userId, userId, userId, userId) as Row;
+
+  return {
+    notes: int(row.notes),
+    drafts: int(row.drafts),
+    moments: int(row.moments),
+    messages: int(row.messages),
+    views: int(row.views),
+  };
+}
+
+export function getSite(handle: string): Site | null {
+  const user = getUserByHandle(handle);
+  if (!user) return null;
+  return { ...toPublicUser(user), stats: statsForUser(user.id) };
+}
+
+export function getOwnerSite(): Site | null {
+  const handle = process.env.OWNER_HANDLE?.trim() || OWNER_HANDLE;
+  const site = getSite(handle);
+  if (site) return site;
+
+  const row = getDb()
+    .prepare("SELECT handle FROM users ORDER BY created_at ASC LIMIT 1")
+    .get() as Row | undefined;
+  return row ? getSite(text(row.handle)) : null;
+}
+
+export function listCreators(): CreatorCard[] {
+  const rows = getDb()
+    .prepare("SELECT * FROM users ORDER BY created_at ASC")
+    .all() as Row[];
+
+  return rows.map((row) => {
+    const user = mapUser(row);
+    return { ...toPublicUser(user), stats: statsForUser(user.id) };
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Notes                                                               */
+/* ------------------------------------------------------------------ */
+
+const NOTE_COLUMNS = `id, user_id, slug, title, summary, category, tags, cover,
+  pinned, status, views, minutes, created_at, updated_at`;
+
+export function listPublishedNotes(
+  userId: string,
+  limit = 100,
+  category?: string,
+): NoteSummary[] {
+  const db = getDb();
+  const rows = category
+    ? (db
+        .prepare(
+          `SELECT ${NOTE_COLUMNS} FROM notes
+           WHERE user_id = ? AND status = 'published' AND category = ?
+           ORDER BY pinned DESC, created_at DESC LIMIT ?`,
+        )
+        .all(userId, category, limit) as Row[])
+    : (db
+        .prepare(
+          `SELECT ${NOTE_COLUMNS} FROM notes
+           WHERE user_id = ? AND status = 'published'
+           ORDER BY pinned DESC, created_at DESC LIMIT ?`,
+        )
+        .all(userId, limit) as Row[]);
+
+  return rows.map(mapNoteSummary);
+}
+
+export function listAllNotes(userId: string): NoteSummary[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT ${NOTE_COLUMNS} FROM notes
+       WHERE user_id = ? ORDER BY created_at DESC`,
+    )
+    .all(userId) as Row[];
+  return rows.map(mapNoteSummary);
+}
+
+export function getNoteBySlug(userId: string, slug: string): Note | null {
+  const row = getDb()
+    .prepare(
+      "SELECT * FROM notes WHERE user_id = ? AND slug = ? AND status = 'published'",
+    )
+    .get(userId, slug) as Row | undefined;
+  return row ? mapNote(row) : null;
+}
+
+export function getNoteById(id: string): Note | null {
+  const row = getDb().prepare("SELECT * FROM notes WHERE id = ?").get(id) as
+    | Row
+    | undefined;
+  return row ? mapNote(row) : null;
+}
+
+export function getCategories(
+  userId: string,
+): Array<{ name: string; count: number }> {
+  const rows = getDb()
+    .prepare(
+      `SELECT category, COUNT(*) AS count FROM notes
+       WHERE user_id = ? AND status = 'published' AND category <> ''
+       GROUP BY category ORDER BY count DESC, category ASC`,
+    )
+    .all(userId) as Row[];
+
+  return rows.map((row) => ({
+    name: text(row.category),
+    count: int(row.count),
+  }));
+}
+
+export function getAdjacentNotes(
+  userId: string,
+  createdAt: string,
+): { older: NoteSummary | null; newer: NoteSummary | null } {
+  const db = getDb();
+  const older = db
+    .prepare(
+      `SELECT ${NOTE_COLUMNS} FROM notes
+       WHERE user_id = ? AND status = 'published' AND created_at < ?
+       ORDER BY created_at DESC LIMIT 1`,
+    )
+    .get(userId, createdAt) as Row | undefined;
+  const newer = db
+    .prepare(
+      `SELECT ${NOTE_COLUMNS} FROM notes
+       WHERE user_id = ? AND status = 'published' AND created_at > ?
+       ORDER BY created_at ASC LIMIT 1`,
+    )
+    .get(userId, createdAt) as Row | undefined;
+
+  return {
+    older: older ? mapNoteSummary(older) : null,
+    newer: newer ? mapNoteSummary(newer) : null,
+  };
+}
+
+export type NoteInput = {
+  title: string;
+  summary: string;
+  content: string;
+  category: string;
+  tags: string[];
+  cover: string;
+  pinned: boolean;
+  status: NoteStatus;
+};
+
+function makeSlug(title: string): string {
+  const base = title
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/[\s_]+/g, "-")
+    .slice(0, 40)
+    .replace(/-+$/g, "");
+
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return `${base || "note"}-${stamp}-${suffix}`;
+}
+
+export function createNote(userId: string, input: NoteInput): Note {
+  const db = getDb();
+  const id = `n_${randomUUID()}`;
+  const createdAt = new Date().toISOString();
+  let slug = makeSlug(input.title);
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const exists = db
+      .prepare("SELECT 1 AS hit FROM notes WHERE user_id = ? AND slug = ?")
+      .get(userId, slug) as Row | undefined;
+    if (!exists) break;
+    slug = makeSlug(input.title);
+  }
+
+  db.prepare(
+    `INSERT INTO notes
+      (id, user_id, slug, title, summary, content, category, tags, cover,
+       pinned, status, views, minutes, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+  ).run(
+    id,
+    userId,
+    slug,
+    input.title,
+    input.summary,
+    input.content,
+    input.category,
+    JSON.stringify(normalizeTags(input.tags)),
+    input.cover,
+    input.pinned ? 1 : 0,
+    input.status,
+    estimateReadingMinutes(input.content),
+    createdAt,
+    createdAt,
+  );
+
+  return getNoteById(id) as Note;
+}
+
+export function updateNote(
+  userId: string,
+  id: string,
+  input: NoteInput,
+): Note | null {
+  const existing = getNoteById(id);
+  if (!existing || existing.userId !== userId) return null;
+
+  getDb()
+    .prepare(
+      `UPDATE notes
+       SET title = ?, summary = ?, content = ?, category = ?, tags = ?,
+           cover = ?, pinned = ?, status = ?, minutes = ?, updated_at = ?
+       WHERE id = ? AND user_id = ?`,
+    )
+    .run(
+      input.title,
+      input.summary,
+      input.content,
+      input.category,
+      JSON.stringify(normalizeTags(input.tags)),
+      input.cover,
+      input.pinned ? 1 : 0,
+      input.status,
+      estimateReadingMinutes(input.content),
+      new Date().toISOString(),
+      id,
+      userId,
+    );
+
+  return getNoteById(id);
+}
+
+export function deleteNote(userId: string, id: string): boolean {
+  const result = getDb()
+    .prepare("DELETE FROM notes WHERE id = ? AND user_id = ?")
+    .run(id, userId);
+  return Number(result.changes) > 0;
+}
+
+export function incrementNoteViews(id: string): void {
+  getDb().prepare("UPDATE notes SET views = views + 1 WHERE id = ?").run(id);
+}
+
+/* ------------------------------------------------------------------ */
+/* Moments                                                             */
+/* ------------------------------------------------------------------ */
+
+export function listMoments(userId: string, limit = 50): Moment[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM moments WHERE user_id = ?
+       ORDER BY created_at DESC LIMIT ?`,
+    )
+    .all(userId, limit) as Row[];
+  return rows.map(mapMoment);
+}
+
+export function createMoment(
+  userId: string,
+  input: { content: string; mood: string },
+): Moment {
+  const id = `m_${randomUUID()}`;
+  const createdAt = new Date().toISOString();
+
+  getDb()
+    .prepare(
+      `INSERT INTO moments (id, user_id, content, mood, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(id, userId, input.content, input.mood, createdAt);
+
+  const row = getDb()
+    .prepare("SELECT * FROM moments WHERE id = ?")
+    .get(id) as Row;
+  return mapMoment(row);
+}
+
+export function deleteMoment(userId: string, id: string): boolean {
+  const result = getDb()
+    .prepare("DELETE FROM moments WHERE id = ? AND user_id = ?")
+    .run(id, userId);
+  return Number(result.changes) > 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Messages                                                            */
+/* ------------------------------------------------------------------ */
+
+export function listMessages(siteUserId: string, limit = 100): Message[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT m.*, u.handle AS author_handle
+       FROM messages m
+       LEFT JOIN users u ON u.id = m.author_user_id
+       WHERE m.site_user_id = ?
+       ORDER BY m.created_at DESC LIMIT ?`,
+    )
+    .all(siteUserId, limit) as Row[];
+  return rows.map(mapMessage);
+}
+
+export function getMessageById(id: string): Message | null {
+  const row = getDb()
+    .prepare(
+      `SELECT m.*, u.handle AS author_handle
+       FROM messages m LEFT JOIN users u ON u.id = m.author_user_id
+       WHERE m.id = ?`,
+    )
+    .get(id) as Row | undefined;
+  return row ? mapMessage(row) : null;
+}
+
+export function createMessage(input: {
+  siteUserId: string;
+  authorUserId: string | null;
+  authorName: string;
+  content: string;
+}): Message {
+  const id = `g_${randomUUID()}`;
+  const createdAt = new Date().toISOString();
+
+  getDb()
+    .prepare(
+      `INSERT INTO messages
+        (id, site_user_id, author_user_id, author_name, content, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      id,
+      input.siteUserId,
+      input.authorUserId,
+      input.authorName,
+      input.content,
+      createdAt,
+    );
+
+  return getMessageById(id) as Message;
+}
+
+export function deleteMessage(id: string): boolean {
+  const result = getDb().prepare("DELETE FROM messages WHERE id = ?").run(id);
+  return Number(result.changes) > 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Sessions                                                            */
+/* ------------------------------------------------------------------ */
+
+export function createSessionRow(
+  token: string,
+  userId: string,
+  expiresAt: string,
+): void {
+  getDb()
+    .prepare(
+      `INSERT INTO sessions (token, user_id, expires_at, created_at)
+       VALUES (?, ?, ?, ?)`,
+    )
+    .run(token, userId, expiresAt, new Date().toISOString());
+}
+
+export function getSessionUser(token: string): UserRecord | null {
+  const row = getDb()
+    .prepare(
+      `SELECT u.* FROM sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.token = ? AND s.expires_at > ?`,
+    )
+    .get(token, new Date().toISOString()) as Row | undefined;
+  return row ? mapUser(row) : null;
+}
+
+export function deleteSessionRow(token: string): void {
+  getDb().prepare("DELETE FROM sessions WHERE token = ?").run(token);
+}

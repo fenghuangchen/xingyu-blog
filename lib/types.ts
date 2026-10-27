@@ -1,0 +1,125 @@
+export type ThemePreset =
+  | "nebula"
+  | "sakura"
+  | "aurora"
+  | "dusk"
+  | "daylight"
+  | "mono";
+
+export type ThemeConfig = {
+  preset: ThemePreset;
+  accent: string;
+  glass: number;
+  radius: number;
+  font: "serif" | "sans";
+  stars: boolean;
+};
+
+export type SocialLink = {
+  label: string;
+  url: string;
+};
+
+export type UserRecord = {
+  id: string;
+  handle: string;
+  email: string | null;
+  passwordHash: string;
+  displayName: string;
+  siteTitle: string;
+  tagline: string;
+  bio: string;
+  now: string;
+  location: string;
+  tags: string[];
+  avatar: string;
+  socials: SocialLink[];
+  theme: ThemeConfig;
+  createdAt: string;
+};
+
+/** Public-facing user. Never includes the password hash or private email. */
+export type PublicUser = Omit<UserRecord, "passwordHash" | "email">;
+
+export type Viewer = Pick<
+  UserRecord,
+  "id" | "handle" | "displayName" | "avatar" | "theme"
+>;
+
+export type SiteStats = {
+  notes: number;
+  drafts: number;
+  moments: number;
+  messages: number;
+  views: number;
+};
+
+export type Site = PublicUser & {
+  stats: SiteStats;
+};
+
+export type NoteStatus = "draft" | "published";
+
+export type Note = {
+  id: string;
+  userId: string;
+  slug: string;
+  title: string;
+  summary: string;
+  content: string;
+  category: string;
+  tags: string[];
+  cover: string;
+  pinned: boolean;
+  status: NoteStatus;
+  views: number;
+  minutes: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NoteSummary = Omit<Note, "content">;
+
+export type Moment = {
+  id: string;
+  userId: string;
+  content: string;
+  mood: string;
+  createdAt: string;
+};
+
+export type Message = {
+  id: string;
+  siteUserId: string;
+  authorUserId: string | null;
+  authorName: string;
+  authorHandle: string | null;
+  content: string;
+  createdAt: string;
+};
+
+export type TocItem = {
+  id: string;
+  text: string;
+  level: 2 | 3;
+};
+
+export type RenderedContent = {
+  html: string;
+  toc: TocItem[];
+  minutes: number;
+  words: number;
+};
+
+export type CreatorCard = {
+  id: string;
+  handle: string;
+  displayName: string;
+  tagline: string;
+  avatar: string;
+  location: string;
+  tags: string[];
+  theme: ThemeConfig;
+  createdAt: string;
+  stats: SiteStats;
+};
