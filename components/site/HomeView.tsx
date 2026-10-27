@@ -96,7 +96,7 @@ export function HomeView({
       <Reveal delay={80} variant="up">
         <section className="split section section-social">
           <span className="section-aura aura-social" aria-hidden="true" />
-          <div className="panel glass">
+          <div className="panel glass panel-moments">
             <div className="panel-head">
               <div>
                 <span className="section-kicker">02 / MOMENTS</span>
@@ -116,7 +116,7 @@ export function HomeView({
           </div>
 
           <div className="side-stack">
-            <div className="panel glass">
+            <div className="panel glass panel-guestbook">
               <div className="panel-head">
                 <div>
                   <span className="section-kicker">03 / GUESTBOOK</span>
@@ -158,7 +158,7 @@ export function HomeView({
               </Link>
             </div>
 
-            <div className="panel glass about-mini">
+            <div className="panel glass about-mini panel-about">
               <span className="section-kicker">04 / ABOUT</span>
               <p className="mini-quote">
                 {site.bio

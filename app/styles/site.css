@@ -3669,127 +3669,250 @@
   }
 }
 
-/* ---------------- AI persona carousel ---------------- */
+/* =========================================================
+   Section colors · 分区色彩
+   ========================================================= */
 
-.persona-carousel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  width: 104px;
+.section-notes {
+  --section-accent: #8fd8ff;
+  --section-accent-2: #b9a7ff;
+}
+
+.section-social {
+  --section-accent: #f2a7c6;
+  --section-accent-2: #7fe3d2;
+}
+
+.section-notes .section-kicker,
+.section-social .section-kicker {
+  color: var(--section-accent);
+}
+
+.section-notes .section-kicker::before,
+.panel .section-kicker::before {
+  content: "";
+  width: 5px;
+  height: 5px;
   flex: none;
+  border-radius: 50%;
+  background: var(--section-accent, var(--panel-accent, var(--accent)));
+  box-shadow: 0 0 10px
+    color-mix(
+      in srgb,
+      var(--section-accent, var(--panel-accent, var(--accent))) 55%,
+      transparent
+    );
 }
 
-.persona-frame {
+.section-notes .section-head::after {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--section-accent) 55%, transparent),
+    color-mix(in srgb, var(--section-accent-2) 34%, transparent) 45%,
+    transparent 84%
+  );
+}
+
+.section-notes .section-link:hover,
+.section-notes .note-likes {
+  color: var(--section-accent);
+}
+
+.section-notes .note-card:hover {
+  border-color: color-mix(in srgb, var(--section-accent) 38%, var(--line));
+  box-shadow:
+    0 30px 70px -40px rgba(0, 0, 0, 0.95),
+    0 0 34px -18px color-mix(in srgb, var(--section-accent) 38%, transparent);
+}
+
+.section-notes .aura-notes {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--section-accent) 24%, transparent),
+    transparent 70%
+  );
+}
+
+.section-social .aura-social {
+  background:
+    radial-gradient(
+      circle at 62% 42%,
+      color-mix(in srgb, var(--section-accent) 17%, transparent),
+      transparent 54%
+    ),
+    radial-gradient(
+      circle at 24% 74%,
+      color-mix(in srgb, var(--section-accent-2) 18%, transparent),
+      transparent 58%
+    );
+}
+
+.panel {
   position: relative;
-  width: 104px;
-  height: 104px;
 }
 
-.persona-slide {
+.panel-moments {
+  --panel-accent: #f2a7c6;
+  --panel-accent-2: #ffd1e0;
+}
+
+.panel-guestbook {
+  --panel-accent: #7fe3d2;
+  --panel-accent-2: #a8f0e2;
+}
+
+.panel-about {
+  --panel-accent: #b9a7ff;
+  --panel-accent-2: #d8cdff;
+}
+
+.panel-moments,
+.panel-guestbook,
+.panel-about {
+  border-color: color-mix(in srgb, var(--panel-accent) 13%, var(--line));
+}
+
+.panel-moments::before,
+.panel-guestbook::before,
+.panel-about::before {
+  content: "";
   position: absolute;
-  inset: 0;
-  z-index: 2;
-  overflow: hidden;
-  border-radius: 50%;
-  animation: personaIn 0.5s var(--ease) both;
+  top: 0;
+  left: 16%;
+  right: 16%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--panel-accent) 68%, transparent),
+    transparent
+  );
+  opacity: 0.7;
+  pointer-events: none;
 }
 
-.persona-slide .avatar {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.panel-moments .section-kicker,
+.panel-moments .section-link:hover,
+.panel-guestbook .section-kicker,
+.panel-guestbook .section-link:hover,
+.panel-about .section-kicker,
+.panel-about .section-link:hover {
+  color: var(--panel-accent);
 }
 
-.persona-frame.is-ai .avatar-halo {
-  animation-duration: 9s;
+.panel-moments .moment-mark::after {
+  border-color: color-mix(in srgb, var(--panel-accent) 36%, transparent);
 }
 
-.persona-badge {
-  position: absolute;
-  top: -2px;
-  right: -3px;
-  z-index: 5;
-  padding: 2px 5px;
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
-  border-radius: 6px;
-  background: var(--accent);
-  box-shadow: 0 3px 12px -4px rgba(0, 0, 0, 0.55);
-  color: #1b1420;
-  font-family: var(--mono);
-  font-size: 0.46rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1;
+.panel-moments .moment-item::after {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--panel-accent) 42%, transparent),
+    color-mix(in srgb, var(--panel-accent-2) 20%, transparent),
+    transparent
+  );
 }
 
-.persona-dots {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  margin-top: 1px;
+.panel-moments .moment-item:hover .moment-mark {
+  border-color: color-mix(in srgb, var(--panel-accent) 48%, var(--line));
+  color: var(--panel-accent);
+  box-shadow: 0 0 22px -8px color-mix(in srgb, var(--panel-accent) 55%, transparent);
 }
 
-.persona-dots button {
-  width: 15px;
-  height: 15px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background-color: var(--card-2);
-  background-position: center;
-  background-size: cover;
-  opacity: 0.48;
-  transition: opacity 0.25s var(--ease), border-color 0.25s var(--ease),
-    transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+.panel-guestbook .mini-avatar {
+  background: linear-gradient(145deg, var(--panel-accent), var(--panel-accent-2));
+  color: #10242a;
 }
 
-.persona-dots button:hover {
-  opacity: 0.85;
+.panel-guestbook .mini-cta:hover {
+  color: var(--panel-accent);
 }
 
-.persona-dots button.is-active {
-  opacity: 1;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 26%, transparent);
-  transform: scale(1.1);
+.panel-about .mini-quote {
+  padding-left: 12px;
+  border-left: 1px solid
+    color-mix(in srgb, var(--panel-accent) 42%, transparent);
 }
 
-.persona-name {
-  color: var(--ink-faint);
-  font-family: var(--mono);
-  font-size: 0.5rem;
-  letter-spacing: 0.14em;
-  line-height: 1.2;
-  text-transform: uppercase;
+.cta-live {
+  --cta-accent: #f0b47a;
+  --cta-accent-2: #f2a7c6;
 }
 
-@keyframes personaIn {
-  from {
-    opacity: 0;
-    transform: scale(1.04);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.cta-live .section-kicker {
+  color: var(--cta-accent);
 }
 
-@media (max-width: 520px) {
-  .persona-dots button {
-    width: 13px;
-    height: 13px;
-  }
-
-  .persona-name {
-    font-size: 0.47rem;
-  }
+.cta-live::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--cta-accent),
+    var(--cta-accent-2),
+    var(--cta-accent),
+    transparent
+  );
+  background-size: 200% 100%;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .persona-slide {
-    animation: none;
-  }
+.footer-tech span:nth-child(1) {
+  color: #9fdcff;
+  border-color: rgba(159, 220, 255, 0.24);
+}
+
+.footer-tech span:nth-child(2) {
+  color: #d8cdff;
+  border-color: rgba(216, 205, 255, 0.24);
+}
+
+.footer-tech span:nth-child(3) {
+  color: #a8f0e2;
+  border-color: rgba(168, 240, 226, 0.24);
+}
+
+.footer-tech span:nth-child(4) {
+  color: #ffd1e0;
+  border-color: rgba(255, 209, 224, 0.24);
+}
+
+.section-notes .section-title {
+  text-shadow: 0 0 42px
+    color-mix(in srgb, var(--section-accent) 18%, transparent);
+}
+
+.section-notes .note-card {
+  border-top-color: color-mix(in srgb, var(--section-accent) 20%, var(--line));
+}
+
+.section-notes .note-tags span {
+  color: color-mix(in srgb, var(--section-accent) 72%, var(--ink-soft));
+}
+
+.section-notes .note-badge-cat {
+  border-color: color-mix(in srgb, var(--section-accent) 32%, transparent);
+  color: color-mix(in srgb, var(--section-accent) 78%, white);
+}
+
+.panel-moments .moment-mark {
+  border-color: color-mix(in srgb, var(--panel-accent) 22%, var(--line));
+  background: color-mix(in srgb, var(--panel-accent) 7%, var(--card-2));
+}
+
+.panel-guestbook .mini-message-head strong {
+  color: color-mix(in srgb, var(--panel-accent) 24%, var(--ink));
+}
+
+.panel-about .mini-quote {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--panel-accent) 7%, transparent),
+    transparent 82%
+  );
+}
+
+.cta-live .btn-primary {
+  background: linear-gradient(135deg, var(--cta-accent-2), var(--cta-accent));
+  color: #2b1a13;
+  box-shadow: 0 12px 30px -18px
+    color-mix(in srgb, var(--cta-accent) 50%, transparent);
 }
