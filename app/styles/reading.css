@@ -169,6 +169,19 @@
   margin-top: 18px;
 }
 
+.article-tags-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.article-tags-row .article-tags {
+  margin-top: 0;
+}
+
 .article-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 248px;

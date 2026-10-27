@@ -82,6 +82,15 @@
   transition: opacity 0.4s var(--ease);
 }
 
+.stars-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: var(--stars);
+  pointer-events: none;
+}
+
 .star {
   position: absolute;
   border-radius: 50%;
@@ -1357,6 +1366,20 @@
   background: currentColor;
 }
 
+.note-likes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+}
+
+.note-likes svg {
+  color: var(--accent);
+  opacity: 0.8;
+}
+
 .note-arrow {
   display: grid;
   place-items: center;
@@ -1648,6 +1671,98 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 30px;
+}
+
+.notes-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 620px;
+  margin: 0 0 22px;
+  padding: 7px 8px 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  backdrop-filter: blur(12px);
+  transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+
+.notes-search:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.notes-search > svg {
+  flex: none;
+  color: var(--ink-faint);
+}
+
+.notes-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.84rem;
+  outline: none;
+}
+
+.notes-search-input::placeholder {
+  color: var(--ink-faint);
+}
+
+.notes-search-input::-webkit-search-cancel-button {
+  filter: invert(0.7);
+}
+
+.notes-search .btn {
+  flex: none;
+}
+
+.notes-search-clear {
+  flex: none;
+  padding: 0 8px;
+  color: var(--ink-faint);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.notes-search-clear:hover {
+  color: var(--accent);
+}
+
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  line-height: 1;
+  transition: color 0.25s var(--ease), border-color 0.25s var(--ease),
+    background 0.25s var(--ease), transform 0.25s var(--ease);
+}
+
+.like-btn:hover {
+  transform: translateY(-1px);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+  background: color-mix(in srgb, var(--accent) 9%, var(--card));
+}
+
+.like-btn.is-liked {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.like-btn.is-liked svg {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent));
 }
 
 .filter-chip {

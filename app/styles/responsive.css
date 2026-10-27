@@ -1015,3 +1015,77 @@
 .theme-preview.site {
   min-height: 0;
 }
+
+/* ---------- v0.2 additions ---------- */
+
+@media (max-width: 780px) {
+  .article-tags-row {
+    gap: 10px;
+  }
+
+  .article-tags-row .like-btn {
+    margin-left: auto;
+  }
+
+  .notes-search {
+    max-width: 100%;
+  }
+
+  .notes-search .btn {
+    padding: 6px 10px;
+  }
+
+  .recovery-note {
+    display: none;
+  }
+
+  .auth-forgot-row {
+    justify-content: flex-start;
+  }
+
+  .avatar-input-row {
+    flex-wrap: wrap;
+  }
+
+  .avatar-input-row .btn {
+    margin-left: auto;
+  }
+
+  .recovery-question strong {
+    font-size: 0.8rem;
+  }
+
+  .settings-panel .password-form .field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .notes-search {
+    padding-left: 11px;
+    gap: 7px;
+  }
+
+  .notes-search .btn {
+    display: none;
+  }
+
+  .notes-search-clear {
+    display: none;
+  }
+
+  .like-btn {
+    padding: 6px 10px;
+    font-size: 0.7rem;
+  }
+
+  .editor-tools {
+    gap: 1px;
+  }
+
+  .editor-tools button {
+    min-width: 26px;
+    height: 25px;
+    padding: 0 5px;
+  }
+}

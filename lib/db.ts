@@ -4,6 +4,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { hashPassword } from "./password";
 import {
+  SEED_LIKE_COUNTS,
   SEED_MESSAGES,
   SEED_MOMENTS,
   SEED_NOTES,
@@ -87,6 +88,8 @@ function mapUser(row: Row): UserRecord {
     avatar: text(row.avatar),
     socials: parseSocials(row.socials),
     theme: parseTheme(row.theme),
+    recoveryQuestion: text(row.recovery_question),
+    recoveryAnswerHash: text(row.recovery_answer_hash),
     createdAt: text(row.created_at),
   };
 }
@@ -106,6 +109,7 @@ function mapNote(row: Row): Note {
     status: text(row.status) === "draft" ? "draft" : "published",
     views: int(row.views),
     minutes: Math.max(1, int(row.minutes)),
+    likes: int(row.likes),
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at),
   };
@@ -139,7 +143,12 @@ function mapMessage(row: Row): Message {
 }
 
 function toPublicUser(user: UserRecord): PublicUser {
-  const { passwordHash: _passwordHash, email: _email, ...rest } = user;
+  const {
+    passwordHash: _passwordHash,
+    email: _email,
+    recoveryAnswerHash: _recoveryAnswerHash,
+    ...rest
+  } = user;
   return rest;
 }
 
@@ -160,6 +169,8 @@ function createSchema(db: DatabaseSync) {
       avatar TEXT NOT NULL DEFAULT '',
       socials TEXT NOT NULL DEFAULT '[]',
       theme TEXT NOT NULL DEFAULT '{}',
+      recovery_question TEXT NOT NULL DEFAULT '',
+      recovery_answer_hash TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     );
 
@@ -214,6 +225,17 @@ function createSchema(db: DatabaseSync) {
       expires_at TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS likes (
+      target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      visitor_key TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (target_type, target_id, visitor_key)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_likes_target
+      ON likes(target_type, target_id);
   `);
 }
 
@@ -317,6 +339,29 @@ function seedDatabase(db: DatabaseSync) {
   }
 }
 
+function seedDemoLikes(db: DatabaseSync) {
+  const row = db.prepare("SELECT COUNT(*) AS count FROM likes").get() as Row;
+  if (int(row.count) > 0) return;
+
+  const owner = db
+    .prepare("SELECT id FROM users WHERE handle = ?")
+    .get(OWNER_HANDLE) as Row | undefined;
+  if (!owner) return;
+
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO likes
+      (target_type, target_id, visitor_key, created_at)
+     VALUES ('note', ?, ?, ?)`,
+  );
+  const createdAt = new Date().toISOString();
+
+  for (const [noteId, count] of Object.entries(SEED_LIKE_COUNTS)) {
+    for (let index = 0; index < count; index += 1) {
+      insert.run(noteId, `seed:${noteId}:${index}`, createdAt);
+    }
+  }
+}
+
 function initDatabase(): DatabaseSync {
   const dir = process.env.DATA_DIR
     ? path.resolve(process.env.DATA_DIR)
@@ -330,14 +375,25 @@ function initDatabase(): DatabaseSync {
   createSchema(db);
 
   const userColumns = db.prepare("PRAGMA table_info(users)").all() as Row[];
-  if (!userColumns.some((column) => text(column.name) === "site_title")) {
-    db.exec("ALTER TABLE users ADD COLUMN site_title TEXT NOT NULL DEFAULT ''");
+  const userColumnNames = new Set(userColumns.map((column) => text(column.name)));
+  const additions: Array<[string, string]> = [
+    ["site_title", "TEXT NOT NULL DEFAULT ''"],
+    ["recovery_question", "TEXT NOT NULL DEFAULT ''"],
+    ["recovery_answer_hash", "TEXT NOT NULL DEFAULT ''"],
+  ];
+
+  for (const [name, definition] of additions) {
+    if (!userColumnNames.has(name)) {
+      db.exec(`ALTER TABLE users ADD COLUMN ${name} ${definition}`);
+    }
   }
+
   db.exec(
     "UPDATE users SET site_title = display_name || '的小岛' WHERE site_title = ''",
   );
 
   seedDatabase(db);
+  seedDemoLikes(db);
 
   db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(
     new Date().toISOString(),
@@ -372,10 +428,13 @@ export function getUserByHandle(handle: string): UserRecord | null {
 }
 
 export function getUserByIdentifier(identifier: string): UserRecord | null {
-  const value = identifier.trim().toLowerCase();
+  const raw = identifier.trim();
+  const value = raw.toLowerCase();
   const row = getDb()
-    .prepare("SELECT * FROM users WHERE handle = ? OR lower(email) = ?")
-    .get(value, value) as Row | undefined;
+    .prepare(
+      "SELECT * FROM users WHERE handle = ? OR lower(email) = ? OR display_name = ?",
+    )
+    .get(value, value, raw) as Row | undefined;
   return row ? mapUser(row) : null;
 }
 
@@ -467,6 +526,23 @@ export function updateUserPasswordHash(
   return Number(result.changes) > 0;
 }
 
+export function updateUserRecovery(
+  id: string,
+  question: string,
+  answerHash: string,
+): UserRecord | null {
+  getDb()
+    .prepare(
+      "UPDATE users SET recovery_question = ?, recovery_answer_hash = ? WHERE id = ?",
+    )
+    .run(question, answerHash, id);
+  return getUserById(id);
+}
+
+export function deleteSessionsForUser(userId: string): void {
+  getDb().prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+}
+
 export function countUsers(): number {
   const row = getDb().prepare("SELECT COUNT(*) AS count FROM users").get() as Row;
   return int(row.count);
@@ -529,30 +605,53 @@ export function listCreators(): CreatorCard[] {
 /* Notes                                                               */
 /* ------------------------------------------------------------------ */
 
-const NOTE_COLUMNS = `id, user_id, slug, title, summary, category, tags, cover,
-  pinned, status, views, minutes, created_at, updated_at`;
+const NOTE_LIKE_COUNT = `(SELECT COUNT(*) FROM likes
+  WHERE likes.target_type = 'note' AND likes.target_id = notes.id)`;
+
+const NOTE_LIST_COLUMNS = `notes.id, notes.user_id, notes.slug, notes.title,
+  notes.summary, notes.category, notes.tags, notes.cover, notes.pinned,
+  notes.status, notes.views, notes.minutes, notes.created_at, notes.updated_at,
+  ${NOTE_LIKE_COUNT} AS likes`;
+
+const NOTE_FULL_COLUMNS = `${NOTE_LIST_COLUMNS}, notes.content`;
+
+function escapeLike(value: string): string {
+  return value.replace(/[!%_]/g, (match) => `!${match}`);
+}
 
 export function listPublishedNotes(
   userId: string,
   limit = 100,
   category?: string,
+  query?: string,
 ): NoteSummary[] {
-  const db = getDb();
-  const rows = category
-    ? (db
-        .prepare(
-          `SELECT ${NOTE_COLUMNS} FROM notes
-           WHERE user_id = ? AND status = 'published' AND category = ?
-           ORDER BY pinned DESC, created_at DESC LIMIT ?`,
-        )
-        .all(userId, category, limit) as Row[])
-    : (db
-        .prepare(
-          `SELECT ${NOTE_COLUMNS} FROM notes
-           WHERE user_id = ? AND status = 'published'
-           ORDER BY pinned DESC, created_at DESC LIMIT ?`,
-        )
-        .all(userId, limit) as Row[]);
+  const conditions = ["notes.user_id = ?", "notes.status = 'published'"];
+  const params: Array<string | number> = [userId];
+
+  if (category) {
+    conditions.push("notes.category = ?");
+    params.push(category);
+  }
+
+  const keyword = query?.trim();
+  if (keyword) {
+    const like = `%${escapeLike(keyword)}%`;
+    conditions.push(
+      `(notes.title LIKE ? ESCAPE '!' OR notes.summary LIKE ? ESCAPE '!' OR notes.content LIKE ? ESCAPE '!' OR notes.tags LIKE ? ESCAPE '!')`,
+    );
+    params.push(like, like, like, like);
+  }
+
+  params.push(limit);
+
+  const rows = getDb()
+    .prepare(
+      `SELECT ${NOTE_LIST_COLUMNS} FROM notes
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY notes.pinned DESC, notes.created_at DESC
+       LIMIT ?`,
+    )
+    .all(...params) as Row[];
 
   return rows.map(mapNoteSummary);
 }
@@ -560,8 +659,8 @@ export function listPublishedNotes(
 export function listAllNotes(userId: string): NoteSummary[] {
   const rows = getDb()
     .prepare(
-      `SELECT ${NOTE_COLUMNS} FROM notes
-       WHERE user_id = ? ORDER BY created_at DESC`,
+      `SELECT ${NOTE_LIST_COLUMNS} FROM notes
+       WHERE notes.user_id = ? ORDER BY notes.created_at DESC`,
     )
     .all(userId) as Row[];
   return rows.map(mapNoteSummary);
@@ -570,16 +669,17 @@ export function listAllNotes(userId: string): NoteSummary[] {
 export function getNoteBySlug(userId: string, slug: string): Note | null {
   const row = getDb()
     .prepare(
-      "SELECT * FROM notes WHERE user_id = ? AND slug = ? AND status = 'published'",
+      `SELECT ${NOTE_FULL_COLUMNS} FROM notes
+       WHERE notes.user_id = ? AND notes.slug = ? AND notes.status = 'published'`,
     )
     .get(userId, slug) as Row | undefined;
   return row ? mapNote(row) : null;
 }
 
 export function getNoteById(id: string): Note | null {
-  const row = getDb().prepare("SELECT * FROM notes WHERE id = ?").get(id) as
-    | Row
-    | undefined;
+  const row = getDb()
+    .prepare(`SELECT ${NOTE_FULL_COLUMNS} FROM notes WHERE notes.id = ?`)
+    .get(id) as Row | undefined;
   return row ? mapNote(row) : null;
 }
 
@@ -607,16 +707,16 @@ export function getAdjacentNotes(
   const db = getDb();
   const older = db
     .prepare(
-      `SELECT ${NOTE_COLUMNS} FROM notes
-       WHERE user_id = ? AND status = 'published' AND created_at < ?
-       ORDER BY created_at DESC LIMIT 1`,
+      `SELECT ${NOTE_LIST_COLUMNS} FROM notes
+       WHERE notes.user_id = ? AND notes.status = 'published' AND notes.created_at < ?
+       ORDER BY notes.created_at DESC LIMIT 1`,
     )
     .get(userId, createdAt) as Row | undefined;
   const newer = db
     .prepare(
-      `SELECT ${NOTE_COLUMNS} FROM notes
-       WHERE user_id = ? AND status = 'published' AND created_at > ?
-       ORDER BY created_at ASC LIMIT 1`,
+      `SELECT ${NOTE_LIST_COLUMNS} FROM notes
+       WHERE notes.user_id = ? AND notes.status = 'published' AND notes.created_at > ?
+       ORDER BY notes.created_at ASC LIMIT 1`,
     )
     .get(userId, createdAt) as Row | undefined;
 
@@ -725,7 +825,17 @@ export function updateNote(
 }
 
 export function deleteNote(userId: string, id: string): boolean {
-  const result = getDb()
+  const db = getDb();
+  const owned = db
+    .prepare("SELECT 1 AS hit FROM notes WHERE id = ? AND user_id = ?")
+    .get(id, userId) as Row | undefined;
+
+  if (!owned) return false;
+
+  db.prepare(
+    "DELETE FROM likes WHERE target_type = 'note' AND target_id = ?",
+  ).run(id);
+  const result = db
     .prepare("DELETE FROM notes WHERE id = ? AND user_id = ?")
     .run(id, userId);
   return Number(result.changes) > 0;
@@ -733,6 +843,55 @@ export function deleteNote(userId: string, id: string): boolean {
 
 export function incrementNoteViews(id: string): void {
   getDb().prepare("UPDATE notes SET views = views + 1 WHERE id = ?").run(id);
+}
+
+export function countLikes(targetType: string, targetId: string): number {
+  const row = getDb()
+    .prepare(
+      "SELECT COUNT(*) AS count FROM likes WHERE target_type = ? AND target_id = ?",
+    )
+    .get(targetType, targetId) as Row;
+  return int(row.count);
+}
+
+export function isLikedBy(
+  targetType: string,
+  targetId: string,
+  visitorKey: string,
+): boolean {
+  const row = getDb()
+    .prepare(
+      `SELECT 1 AS hit FROM likes
+       WHERE target_type = ? AND target_id = ? AND visitor_key = ?`,
+    )
+    .get(targetType, targetId, visitorKey) as Row | undefined;
+  return Boolean(row);
+}
+
+export function toggleLike(
+  targetType: string,
+  targetId: string,
+  visitorKey: string,
+): { liked: boolean; count: number } {
+  const db = getDb();
+  const existing = isLikedBy(targetType, targetId, visitorKey);
+
+  if (existing) {
+    db.prepare(
+      `DELETE FROM likes
+       WHERE target_type = ? AND target_id = ? AND visitor_key = ?`,
+    ).run(targetType, targetId, visitorKey);
+  } else {
+    db.prepare(
+      `INSERT INTO likes (target_type, target_id, visitor_key, created_at)
+       VALUES (?, ?, ?, ?)`,
+    ).run(targetType, targetId, visitorKey, new Date().toISOString());
+  }
+
+  return {
+    liked: !existing,
+    count: countLikes(targetType, targetId),
+  };
 }
 
 /* ------------------------------------------------------------------ */

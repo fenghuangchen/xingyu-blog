@@ -245,6 +245,14 @@ export const SEED_MESSAGES: SeedMessage[] = [
   },
 ];
 
+export const SEED_LIKE_COUNTS: Record<string, number> = {
+  n_memory_layers: 18,
+  n_react_agent: 11,
+  n_nextjs_16: 9,
+  n_tea_attention: 7,
+  n_night_reading: 5,
+};
+
 export function readSeedContent(file: string): string {
   try {
     return fs

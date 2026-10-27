@@ -35,11 +35,16 @@ export type UserRecord = {
   avatar: string;
   socials: SocialLink[];
   theme: ThemeConfig;
+  recoveryQuestion: string;
+  recoveryAnswerHash: string;
   createdAt: string;
 };
 
-/** Public-facing user. Never includes the password hash or private email. */
-export type PublicUser = Omit<UserRecord, "passwordHash" | "email">;
+/** Public-facing user. Never includes password / recovery secrets or email. */
+export type PublicUser = Omit<
+  UserRecord,
+  "passwordHash" | "email" | "recoveryAnswerHash"
+>;
 
 export type Viewer = Pick<
   UserRecord,
@@ -74,6 +79,7 @@ export type Note = {
   status: NoteStatus;
   views: number;
   minutes: number;
+  likes: number;
   createdAt: string;
   updatedAt: string;
 };

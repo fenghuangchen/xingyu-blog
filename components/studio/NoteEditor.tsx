@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Clock,
   Eye,
+  ImagePlus,
   Loader2,
   Save,
   Trash2,
@@ -58,6 +59,8 @@ export function NoteEditor({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
 
   const minutes = estimateReadingMinutes(content);
@@ -118,6 +121,53 @@ export function NoteEditor({
       element.selectionStart = start + before.length;
       element.selectionEnd = start + before.length + selected.length;
     });
+  }
+
+  function insertRaw(text: string) {
+    const element = textareaRef.current;
+    const start = element?.selectionStart ?? content.length;
+    const end = element?.selectionEnd ?? content.length;
+    const next = content.slice(0, start) + text + content.slice(end);
+
+    setContent(next);
+    window.requestAnimationFrame(() => {
+      if (!element) return;
+      const position = start + text.length;
+      element.focus();
+      element.selectionStart = position;
+      element.selectionEnd = position;
+    });
+  }
+
+  async function uploadImage(file: File) {
+    if (uploadingImage) return;
+    setError("");
+    setUploadingImage(true);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: form,
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.url) {
+        setError(data.error || "图片上传失败，请稍后再试。");
+        return;
+      }
+
+      insertRaw(`![图片](${data.url})`);
+    } catch {
+      setError("图片上传失败，请稍后再试。");
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   async function handleSave() {
@@ -349,6 +399,29 @@ export function NoteEditor({
               >
                 ↗
               </button>
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                title="上传图片"
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <Loader2 size={14} className="spin" />
+                ) : (
+                  <ImagePlus size={14} />
+                )}
+              </button>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void uploadImage(file);
+                }}
+              />
             </div>
 
             <span className="editor-toolbar-note">Markdown · 自动目录</span>
@@ -360,6 +433,15 @@ export function NoteEditor({
               className="editor-textarea"
               value={content}
               onChange={(event) => setContent(event.target.value)}
+              onPaste={(event) => {
+                const file = Array.from(event.clipboardData.files).find((item) =>
+                  item.type.startsWith("image/"),
+                );
+                if (file) {
+                  event.preventDefault();
+                  void uploadImage(file);
+                }
+              }}
               placeholder="从这里开始写……"
               spellCheck={false}
               aria-label="Markdown 正文"

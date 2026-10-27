@@ -154,6 +154,138 @@
   margin-top: 6px;
 }
 
+.auth-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6px;
+}
+
+.auth-forgot-row a {
+  color: var(--accent);
+  font-size: 0.72rem;
+}
+
+.recovery-note {
+  display: flex;
+  gap: 12px;
+  max-width: 470px;
+  margin-top: 30px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  line-height: 1.8;
+}
+
+.recovery-note svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.recovery-note strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.recovery-note p {
+  margin-top: 3px;
+}
+
+.recovery-head {
+  margin-top: 4px;
+}
+
+.recovery-head h2 {
+  margin-top: 8px;
+  font-family: var(--display);
+  font-size: 1.8rem;
+}
+
+.recovery-head p {
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font-size: 0.76rem;
+  line-height: 1.8;
+}
+
+.recovery-question {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.recovery-question span {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+}
+
+.recovery-question strong {
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.7;
+}
+
+.recovery-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 0.7rem;
+}
+
+.recovery-back:hover {
+  color: var(--accent);
+}
+
+.recovery-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0 4px;
+  text-align: center;
+}
+
+.recovery-done-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--accent), var(--accent-2));
+  color: #241727;
+  font-size: 1.3rem;
+}
+
+.recovery-done h2 {
+  font-family: var(--display);
+  font-size: 1.65rem;
+}
+
+.recovery-done p {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.8;
+}
+
+.recovery-done .btn {
+  margin-top: 8px;
+}
+
 .auth-switch {
   margin-top: 20px;
   color: var(--ink-faint);

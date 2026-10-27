@@ -13,6 +13,7 @@ import type { Note, NoteSummary, Site, Viewer } from "@/lib/types";
 import { formatDate, formatDateLong } from "@/lib/utils";
 import { ArticleEnhancer } from "./ArticleEnhancer";
 import { CoverArt } from "./CoverArt";
+import { LikeButton } from "./LikeButton";
 import { SiteShell } from "./SiteShell";
 import { ViewPing } from "./ViewPing";
 
@@ -22,6 +23,7 @@ type NoteViewProps = {
   viewer: Viewer | null;
   note: Note;
   adjacent: { older: NoteSummary | null; newer: NoteSummary | null };
+  liked: boolean;
 };
 
 export function NoteView({
@@ -30,6 +32,7 @@ export function NoteView({
   viewer,
   note,
   adjacent,
+  liked,
 }: NoteViewProps) {
   const { html, toc } = renderMarkdown(note.content);
 
@@ -100,15 +103,24 @@ export function NoteView({
               </span>
             </div>
 
-            {note.tags.length ? (
-              <div className="article-tags">
-                {note.tags.map((tag) => (
-                  <span className="chip chip-sm" key={tag}>
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            ) : null}
+            <div className="article-tags-row">
+              {note.tags.length ? (
+                <div className="article-tags">
+                  {note.tags.map((tag) => (
+                    <span className="chip chip-sm" key={tag}>
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span />
+              )}
+              <LikeButton
+                noteId={note.id}
+                initialLiked={liked}
+                initialCount={note.likes}
+              />
+            </div>
           </div>
         </header>
 

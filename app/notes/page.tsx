@@ -18,16 +18,17 @@ export const metadata: Metadata = {
 export default async function NotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string | string[] }>;
+  searchParams: Promise<{ category?: string | string[]; q?: string | string[] }>;
 }) {
   const site = getOwnerSite();
   if (!site) notFound();
 
-  const { category } = await searchParams;
+  const { category, q } = await searchParams;
   const activeCategory = typeof category === "string" ? category : undefined;
+  const query = typeof q === "string" ? q.trim().slice(0, 60) : "";
 
   const [viewer] = await Promise.all([getViewer()]);
-  const notes = listPublishedNotes(site.id, 100, activeCategory);
+  const notes = listPublishedNotes(site.id, 100, activeCategory, query);
   const categories = getCategories(site.id);
 
   return (
@@ -38,6 +39,7 @@ export default async function NotesPage({
       notes={notes}
       categories={categories}
       activeCategory={activeCategory}
+      query={query}
     />
   );
 }

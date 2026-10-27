@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Check,
+  ImagePlus,
   Loader2,
   Palette,
   Plus,
@@ -62,6 +63,18 @@ export function SettingsPanel({ user }: { user: PublicUser }) {
   const [passwordPending, setPasswordPending] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
+
+  const [recoveryQuestion, setRecoveryQuestion] = useState(
+    user.recoveryQuestion,
+  );
+  const [recoveryAnswer, setRecoveryAnswer] = useState("");
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryPending, setRecoveryPending] = useState(false);
+  const [recoveryError, setRecoveryError] = useState("");
+  const [recoverySuccess, setRecoverySuccess] = useState("");
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   function updateTheme(patch: Partial<ThemeConfig>) {
     setTheme((current) => ({ ...current, ...patch }));
@@ -181,6 +194,95 @@ export function SettingsPanel({ user }: { user: PublicUser }) {
     }
   }
 
+  async function handleRecoveryChange(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    if (recoveryPending) return;
+
+    setRecoveryError("");
+    setRecoverySuccess("");
+
+    const question = recoveryQuestion.trim();
+    const answer = recoveryAnswer.trim();
+
+    if (Boolean(question) !== Boolean(answer)) {
+      setRecoveryError("密保问题和答案需要同时填写。");
+      return;
+    }
+
+    if (!recoveryPassword) {
+      setRecoveryError("请输入当前密码以确认修改。");
+      return;
+    }
+
+    setRecoveryPending(true);
+    try {
+      const response = await fetch("/api/settings/recovery", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question,
+          answer,
+          currentPassword: recoveryPassword,
+        }),
+      });
+
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setRecoveryError(data.error || "密保问题没有保存，请稍后再试。");
+        return;
+      }
+
+      setRecoveryAnswer("");
+      setRecoveryPassword("");
+      setRecoverySuccess(
+        question
+          ? "密保问题已保存。忘记密码时可以用它找回账号。"
+          : "密保问题已清除。",
+      );
+      router.refresh();
+    } catch {
+      setRecoveryError("网络开小差了，请稍后再试。");
+    } finally {
+      setRecoveryPending(false);
+    }
+  }
+
+  async function uploadAvatar(file: File) {
+    setUploadingAvatar(true);
+    setError("");
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: form,
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.url) {
+        setError(data.error || "头像上传失败，请稍后再试。");
+        return;
+      }
+
+      setAvatar(data.url);
+      setSaved(false);
+    } catch {
+      setError("网络开小差了，请稍后再试。");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
   return (
     <div className="studio-page settings-page">
       <header className="studio-page-head">
@@ -256,16 +358,42 @@ export function SettingsPanel({ user }: { user: PublicUser }) {
                   <div className="avatar-editor-fields">
                     <div className="field">
                       <label htmlFor="avatar">头像</label>
-                      <input
-                        id="avatar"
-                        className="input"
-                        value={avatar}
-                        onChange={(event) => setAvatar(event.target.value)}
-                        placeholder="/avatar.jpg 或 https://… 或一个 emoji"
-                        maxLength={300}
-                      />
+                      <div className="avatar-input-row">
+                        <input
+                          id="avatar"
+                          className="input"
+                          value={avatar}
+                          onChange={(event) => setAvatar(event.target.value)}
+                          placeholder="/avatar.jpg 或 https://… 或一个 emoji"
+                          maxLength={300}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => avatarInputRef.current?.click()}
+                          disabled={uploadingAvatar}
+                        >
+                          {uploadingAvatar ? (
+                            <Loader2 size={14} className="spin" />
+                          ) : (
+                            <ImagePlus size={14} />
+                          )}
+                          {uploadingAvatar ? "上传中" : "上传"}
+                        </button>
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          hidden
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = "";
+                            if (file) void uploadAvatar(file);
+                          }}
+                        />
+                      </div>
                       <span className="field-hint">
-                        支持图片链接、站内路径，或一个不超过 8 个字符的 emoji。
+                        支持 JPG / PNG / WebP / GIF（5MB 内），也可填图片链接、站内路径或一个 emoji。
                       </span>
                     </div>
                   </div>
@@ -501,6 +629,102 @@ export function SettingsPanel({ user }: { user: PublicUser }) {
                       <Check size={14} />
                     )}
                     {passwordPending ? "正在更新" : "更新密码"}
+                  </button>
+                </form>
+              </section>
+
+              <section className="settings-panel glass">
+                <div className="settings-panel-head">
+                  <span className="section-kicker">RECOVERY</span>
+                  <h2>密保问题</h2>
+                  <p>
+                    忘记密码时，在找回页面输入用户名后会出现这个问题。
+                    答案只保存哈希，站长也无法查看。
+                  </p>
+                </div>
+
+                <div
+                  className={`recovery-status${
+                    user.recoveryQuestion ? "" : " is-empty"
+                  }`}
+                >
+                  <span>当前状态</span>
+                  <strong>
+                    {user.recoveryQuestion
+                      ? `已设置：${user.recoveryQuestion}`
+                      : "还没有设置密保问题，忘记密码后将无法自助找回。"}
+                  </strong>
+                </div>
+
+                <form className="password-form" onSubmit={handleRecoveryChange}>
+                  <div className="field">
+                    <label htmlFor="recovery-question">密保问题</label>
+                    <input
+                      id="recovery-question"
+                      className="input"
+                      value={recoveryQuestion}
+                      onChange={(event) =>
+                        setRecoveryQuestion(event.target.value)
+                      }
+                      placeholder="例如：我的头像图片叫什么名字？"
+                      maxLength={120}
+                    />
+                  </div>
+
+                  <div className="field-grid">
+                    <div className="field">
+                      <label htmlFor="recovery-answer">答案</label>
+                      <input
+                        id="recovery-answer"
+                        type="password"
+                        className="input"
+                        value={recoveryAnswer}
+                        onChange={(event) =>
+                          setRecoveryAnswer(event.target.value)
+                        }
+                        placeholder="忘记密码时凭这个找回"
+                        autoComplete="off"
+                        maxLength={120}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="recovery-password">当前密码</label>
+                      <input
+                        id="recovery-password"
+                        type="password"
+                        className="input"
+                        value={recoveryPassword}
+                        onChange={(event) =>
+                          setRecoveryPassword(event.target.value)
+                        }
+                        placeholder="确认是你本人"
+                        autoComplete="current-password"
+                      />
+                    </div>
+                  </div>
+
+                  <span className="field-hint">
+                    同时清空问题和答案再保存，可以取消密保设置。
+                  </span>
+
+                  {recoveryError ? (
+                    <p className="form-error">{recoveryError}</p>
+                  ) : null}
+                  {recoverySuccess ? (
+                    <p className="form-success">{recoverySuccess}</p>
+                  ) : null}
+
+                  <button
+                    type="submit"
+                    className="btn btn-ghost btn-sm"
+                    disabled={recoveryPending}
+                  >
+                    {recoveryPending ? (
+                      <Loader2 size={14} className="spin" />
+                    ) : (
+                      <Check size={14} />
+                    )}
+                    {recoveryPending ? "正在保存" : "保存密保问题"}
                   </button>
                 </form>
               </section>

@@ -28,17 +28,18 @@ export default async function UserNotesPage({
   searchParams,
 }: {
   params: Promise<{ handle: string }>;
-  searchParams: Promise<{ category?: string | string[] }>;
+  searchParams: Promise<{ category?: string | string[]; q?: string | string[] }>;
 }) {
   const { handle } = await params;
   const site = getSite(handle);
   if (!site) notFound();
 
-  const { category } = await searchParams;
+  const { category, q } = await searchParams;
   const activeCategory = typeof category === "string" ? category : undefined;
+  const query = typeof q === "string" ? q.trim().slice(0, 60) : "";
 
   const viewer = await getViewer();
-  const notes = listPublishedNotes(site.id, 100, activeCategory);
+  const notes = listPublishedNotes(site.id, 100, activeCategory, query);
   const categories = getCategories(site.id);
 
   return (
@@ -49,6 +50,7 @@ export default async function UserNotesPage({
       notes={notes}
       categories={categories}
       activeCategory={activeCategory}
+      query={query}
     />
   );
 }

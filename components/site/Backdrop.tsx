@@ -1,4 +1,4 @@
-import { Stars } from "./Stars";
+import { DynamicStars } from "./DynamicStars";
 
 export function Backdrop({ stars = true }: { stars?: boolean }) {
   return (
@@ -7,7 +7,7 @@ export function Backdrop({ stars = true }: { stars?: boolean }) {
       <div className="orb orb-b" />
       <div className="orb orb-c" />
       <div className="backdrop-veil" />
-      {stars ? <Stars /> : null}
+      {stars ? <DynamicStars /> : null}
       <div className="grain" />
     </div>
   );

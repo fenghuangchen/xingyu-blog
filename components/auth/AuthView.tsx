@@ -187,13 +187,13 @@ export function AuthView({ mode }: { mode: "login" | "register" }) {
               </>
             ) : (
               <div className="field">
-                <label htmlFor="identifier">用户名</label>
+                <label htmlFor="identifier">用户名或昵称</label>
                 <input
                   id="identifier"
                   className="input"
                   value={identifier}
                   onChange={(event) => setIdentifier(event.target.value)}
-                  placeholder="输入你的用户名"
+                  placeholder="祁茶 或 qicha"
                   autoComplete="username"
                   required
                 />
@@ -214,6 +214,12 @@ export function AuthView({ mode }: { mode: "login" | "register" }) {
                 required
               />
             </div>
+
+            {isLogin ? (
+              <div className="auth-forgot-row">
+                <Link href="/forgot">忘记密码？</Link>
+              </div>
+            ) : null}
 
             {error ? <p className="form-error">{error}</p> : null}
 

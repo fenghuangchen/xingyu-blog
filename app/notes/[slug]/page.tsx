@@ -6,7 +6,9 @@ import {
   getAdjacentNotes,
   getNoteBySlug,
   getOwnerSite,
+  isLikedBy,
 } from "@/lib/db";
+import { getViewerLikeKey } from "@/lib/visitor";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,8 @@ export default async function NotePage({
   if (!note) notFound();
 
   const viewer = await getViewer();
+  const likeKey = await getViewerLikeKey(viewer);
+  const liked = likeKey ? isLikedBy("note", note.id, likeKey) : false;
   const adjacent = getAdjacentNotes(site.id, note.createdAt);
 
   return (
@@ -55,6 +59,7 @@ export default async function NotePage({
       viewer={viewer}
       note={note}
       adjacent={adjacent}
+      liked={liked}
     />
   );
 }

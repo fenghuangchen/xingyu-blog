@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Pin } from "lucide-react";
+import { ArrowUpRight, Heart, Pin } from "lucide-react";
 import type { NoteSummary } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { CoverArt } from "./CoverArt";
@@ -45,6 +45,10 @@ export function NoteCard({
           <span>{formatDate(note.createdAt)}</span>
           <span className="note-foot-dot" />
           <span>{note.minutes} 分钟</span>
+          <span className="note-likes">
+            <Heart size={11} />
+            {note.likes}
+          </span>
           <span className="note-arrow">
             <ArrowUpRight size={15} />
           </span>
