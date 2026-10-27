@@ -10,12 +10,17 @@ import {
   Code2,
   Eye,
   ImagePlus,
+  Italic,
   Loader2,
+  Maximize2,
+  Minimize2,
   Save,
+  Strikethrough,
   Trash2,
 } from "lucide-react";
 import { CoverArt } from "@/components/site/CoverArt";
 import type { Note, NoteStatus } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import {
   CATEGORY_SUGGESTIONS,
   COVER_OPTIONS,
@@ -83,6 +88,19 @@ const CODE_EXTENSIONS = Object.keys(CODE_LANGUAGE_BY_EXT);
 const CODE_UPLOAD_ACCEPT = CODE_EXTENSIONS.map(
   (extension) => `.${extension}`,
 ).join(",");
+const NEW_DRAFT_KEY = "xingyu:note-draft:new";
+
+type LocalDraft = {
+  title: string;
+  summary: string;
+  content: string;
+  category: string;
+  tagsText: string;
+  cover: string;
+  pinned: boolean;
+  status: NoteStatus;
+  savedAt: number;
+};
 
 function languageForFile(name: string): string {
   const extension = name.split(".").pop()?.toLowerCase() ?? "";
@@ -126,9 +144,39 @@ export function NoteEditor({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
+  const [focusMode, setFocusMode] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [draftCandidate, setDraftCandidate] = useState<LocalDraft | null>(null);
 
   const minutes = estimateReadingMinutes(content);
   const chars = content.replace(/\s/g, "").length;
+  const tagCount = normalizeTags(tagsText).length;
+  const draftKey = initial ? `xingyu:note-draft:${initial.id}` : NEW_DRAFT_KEY;
+  const isDirty = initial
+    ? title !== initial.title ||
+      summary !== initial.summary ||
+      content !== initial.content ||
+      category !== initial.category ||
+      tagsText !== initial.tags.join(", ") ||
+      cover !== initial.cover ||
+      pinned !== initial.pinned ||
+      status !== initial.status
+    : title.trim() !== "" ||
+      summary.trim() !== "" ||
+      content !== DEFAULT_CONTENT ||
+      category.trim() !== "" ||
+      tagsText.trim() !== "" ||
+      cover !== "orbit" ||
+      pinned ||
+      status !== "draft";
+
+  const draftTime = draftSavedAt
+    ? new Intl.DateTimeFormat("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Shanghai",
+      }).format(new Date(draftSavedAt))
+    : null;
 
   useEffect(() => {
     if (!content.trim()) {
@@ -169,6 +217,111 @@ export function NoteEditor({
     const timer = window.setTimeout(() => setSaved(false), 2400);
     return () => window.clearTimeout(timer);
   }, [saved]);
+
+  useEffect(() => {
+    if (initial) return;
+
+    try {
+      const raw = window.localStorage.getItem(NEW_DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as LocalDraft;
+      if (
+        draft &&
+        (draft.title?.trim() ||
+          draft.content !== DEFAULT_CONTENT ||
+          draft.summary?.trim())
+      ) {
+        setDraftCandidate(draft);
+      }
+    } catch {
+      // 本地草稿损坏时直接忽略，不影响正常写作
+    }
+  }, [initial]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+
+    const timer = window.setTimeout(() => {
+      const draft: LocalDraft = {
+        title,
+        summary,
+        content,
+        category,
+        tagsText,
+        cover,
+        pinned,
+        status,
+        savedAt: Date.now(),
+      };
+
+      try {
+        window.localStorage.setItem(draftKey, JSON.stringify(draft));
+        setDraftSavedAt(draft.savedAt);
+      } catch {
+        // 浏览器禁用本地存储时静默降级
+      }
+    }, 900);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    isDirty,
+    draftKey,
+    title,
+    summary,
+    content,
+    category,
+    tagsText,
+    cover,
+    pinned,
+    status,
+  ]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  useEffect(() => {
+    if (!focusMode) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFocusMode(false);
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [focusMode]);
+
+  function restoreDraft() {
+    if (!draftCandidate) return;
+
+    setTitle(draftCandidate.title);
+    setSummary(draftCandidate.summary);
+    setContent(draftCandidate.content);
+    setCategory(draftCandidate.category);
+    setTagsText(draftCandidate.tagsText);
+    setCover(draftCandidate.cover);
+    setPinned(draftCandidate.pinned);
+    setStatus(draftCandidate.status);
+    setDraftCandidate(null);
+    setSaved(false);
+  }
+
+  function discardDraft() {
+    try {
+      window.localStorage.removeItem(NEW_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+    setDraftCandidate(null);
+  }
 
   function insertSnippet(before: string, after = "", placeholder = "文字") {
     const element = textareaRef.current;
@@ -321,6 +474,14 @@ export function NoteEditor({
         return;
       }
 
+      try {
+        window.localStorage.removeItem(draftKey);
+      } catch {
+        // ignore
+      }
+      setDraftSavedAt(null);
+      setDraftCandidate(null);
+
       if (!initial && data.note?.id) {
         router.replace(`/studio/notes/${data.note.id}`);
         router.refresh();
@@ -360,7 +521,7 @@ export function NoteEditor({
       : null;
 
   return (
-    <div className="studio-page editor-page">
+    <div className={cn("studio-page editor-page", focusMode && "is-focus")}>
       <div className="editor-topbar">
         <Link href="/studio/notes" className="editor-back">
           <ChevronLeft size={16} />
@@ -384,18 +545,39 @@ export function NoteEditor({
               发布
             </button>
           </div>
-          <span className="editor-save-state">
-            {saved ? (
+          <span
+            className={cn(
+              "editor-save-state",
+              isDirty && !saved && "is-dirty",
+            )}
+          >
+            {saving ? (
+              "保存中…"
+            ) : !isDirty && (saved || initial) ? (
               <>
                 <Check size={13} /> 已保存
               </>
+            ) : draftTime ? (
+              `本地草稿 ${draftTime}`
+            ) : initial ? (
+              "未保存"
             ) : (
-              "改动会在保存后生效"
+              "新笔记"
             )}
           </span>
         </div>
 
         <div className="editor-topbar-actions">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm editor-focus-btn"
+            onClick={() => setFocusMode((value) => !value)}
+            title={focusMode ? "退出专注模式" : "专注写作"}
+            aria-pressed={focusMode}
+          >
+            {focusMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            <span>{focusMode ? "退出专注" : "专注"}</span>
+          </button>
           {previewHref ? (
             <Link
               href={previewHref}
@@ -427,9 +609,46 @@ export function NoteEditor({
 
       {error ? <p className="form-error editor-error">{error}</p> : null}
 
+      {draftCandidate ? (
+        <div className="editor-draft-banner glass">
+          <div>
+            <strong>发现上次没保存的草稿</strong>
+            <span>
+              本地保存于{" "}
+              {new Intl.DateTimeFormat("zh-CN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZone: "Asia/Shanghai",
+              }).format(new Date(draftCandidate.savedAt))}
+              ，要恢复吗？
+            </span>
+          </div>
+          <div className="editor-draft-actions">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={restoreDraft}
+            >
+              恢复草稿
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={discardDraft}
+            >
+              忽略
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="editor-grid">
         <div className="editor-main glass">
           <div className="editor-head-fields">
+            <span className="editor-kicker">
+              WRITING DESK ·{" "}
+              {status === "published" ? "PUBLIC NOTE" : "PRIVATE DRAFT"}
+            </span>
             <input
               className="editor-title-input"
               value={title}
@@ -477,9 +696,23 @@ export function NoteEditor({
               <button
                 type="button"
                 onClick={() => insertSnippet("**", "**", "加粗文字")}
-                title="加粗"
+                title="加粗（Ctrl/Cmd + B）"
               >
                 B
+              </button>
+              <button
+                type="button"
+                onClick={() => insertSnippet("_", "_", "斜体文字")}
+                title="斜体（Ctrl/Cmd + I）"
+              >
+                <Italic size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => insertSnippet("~~", "~~", "删除线文字")}
+                title="删除线"
+              >
+                <Strikethrough size={14} />
               </button>
               <button
                 type="button"
@@ -488,6 +721,9 @@ export function NoteEditor({
               >
                 “
               </button>
+
+              <span className="editor-tool-divider" aria-hidden="true" />
+
               <button
                 type="button"
                 onClick={() => insertSnippet("- ", "", "列表项")}
@@ -498,11 +734,48 @@ export function NoteEditor({
               <button
                 type="button"
                 onClick={() =>
+                  insertRaw("\n- [ ] 待办事项\n- [ ] 待办事项\n\n")
+                }
+                title="任务清单"
+              >
+                ☑
+              </button>
+              <button
+                type="button"
+                onClick={() =>
                   insertSnippet("[", "](https://)", "链接文字")
                 }
-                title="链接"
+                title="链接（Ctrl/Cmd + K）"
               >
                 ↗
+              </button>
+              <button
+                type="button"
+                onClick={() => insertSnippet("`", "`", "行内代码")}
+                title="行内代码"
+              >
+                `
+              </button>
+
+              <span className="editor-tool-divider" aria-hidden="true" />
+
+              <button
+                type="button"
+                onClick={() => insertRaw("\n---\n\n")}
+                title="分隔线"
+              >
+                —
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertRaw(
+                    "\n| 标题 | 标题 |\n| --- | --- |\n| 内容 | 内容 |\n\n",
+                  )
+                }
+                title="插入表格"
+              >
+                ▦
               </button>
               <button
                 type="button"
@@ -516,17 +789,6 @@ export function NoteEditor({
                   <ImagePlus size={14} />
                 )}
               </button>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                hidden
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-                  if (file) void uploadImage(file);
-                }}
-              />
               <button
                 type="button"
                 onClick={() => codeInputRef.current?.click()}
@@ -540,6 +802,17 @@ export function NoteEditor({
                 )}
               </button>
               <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void uploadImage(file);
+                }}
+              />
+              <input
                 ref={codeInputRef}
                 type="file"
                 accept={CODE_UPLOAD_ACCEPT}
@@ -552,7 +825,7 @@ export function NoteEditor({
               />
             </div>
 
-            <span className="editor-toolbar-note">Markdown · 自动目录</span>
+            <span className="editor-toolbar-note">Ctrl+S 保存</span>
           </div>
 
           <div className="editor-panes" data-tab={tab}>
@@ -561,6 +834,24 @@ export function NoteEditor({
               className="editor-textarea"
               value={content}
               onChange={(event) => setContent(event.target.value)}
+              onKeyDown={(event) => {
+                if (!(event.metaKey || event.ctrlKey)) return;
+
+                const key = event.key.toLowerCase();
+                if (key === "b") {
+                  event.preventDefault();
+                  insertSnippet("**", "**", "加粗文字");
+                } else if (key === "i") {
+                  event.preventDefault();
+                  insertSnippet("_", "_", "斜体文字");
+                } else if (key === "k") {
+                  event.preventDefault();
+                  insertSnippet("[", "](https://)", "链接文字");
+                } else if (key === "s") {
+                  event.preventDefault();
+                  void handleSave();
+                }
+              }}
               onPaste={(event) => {
                 const file = Array.from(event.clipboardData.files).find((item) =>
                   item.type.startsWith("image/"),
@@ -620,6 +911,27 @@ export function NoteEditor({
         </div>
 
         <aside className="editor-side">
+          <div className="editor-side-card glass editor-stats-card">
+            <span className="editor-side-title">这篇笔记</span>
+            <div className="editor-stats">
+              <div>
+                <strong>{chars}</strong>
+                <span>字</span>
+              </div>
+              <div>
+                <strong>{minutes}</strong>
+                <span>分钟</span>
+              </div>
+              <div>
+                <strong>{tagCount}</strong>
+                <span>标签</span>
+              </div>
+            </div>
+            <span className="editor-stat-status">
+              {status === "published" ? "公开笔记" : "仅自己可见"}
+            </span>
+          </div>
+
           <div className="editor-side-card glass">
             <span className="editor-side-title">封面</span>
             <div className="cover-picker">
@@ -696,6 +1008,8 @@ export function NoteEditor({
               <li>代码块支持高亮：三个反引号加语言名。</li>
               <li>点工具栏的 &lt;/&gt; 上传 .py / .ts 等代码文件，会自动识别语言。</li>
               <li>也可以把图片或代码文件直接拖进编辑区。</li>
+              <li>Ctrl / Cmd + B / I / K 快捷插入，Ctrl / Cmd + S 保存。</li>
+              <li>按 Esc 可以退出专注模式。</li>
               <li>摘要留空时，会从正文自动截取。</li>
               <li>保存草稿不会出现在公开站点。</li>
             </ul>

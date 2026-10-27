@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { GithubIcon, StarMark } from "@/components/icons";
 import type { Site } from "@/lib/types";
+import { daysSince } from "@/lib/utils";
+import { IslandClock } from "./IslandClock";
 
 export function SiteFooter({
   site,
@@ -12,6 +14,7 @@ export function SiteFooter({
 }) {
   const year = new Date().getFullYear();
   const homeHref = basePath || "/";
+  const livingDays = Math.max(1, daysSince(site.createdAt));
 
   return (
     <footer className="site-footer">
@@ -66,6 +69,20 @@ export function SiteFooter({
             )}
             <Link href="/explore">发现其他小岛</Link>
           </div>
+        </div>
+      </div>
+
+      <div className="footer-status">
+        <IslandClock />
+        <span className="footer-live">
+          <span className="footer-live-dot" />
+          岛屿在线 · 第 {livingDays} 天
+        </span>
+        <div className="footer-tech" aria-label="技术栈">
+          <span>Next.js</span>
+          <span>React</span>
+          <span>SQLite</span>
+          <span>CSS</span>
         </div>
       </div>
 

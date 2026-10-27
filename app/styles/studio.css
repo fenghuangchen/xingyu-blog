@@ -1497,8 +1497,8 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .editor-title-input::placeholder {
-  color: var(--ink-faint);
-  opacity: 0.65;
+  color: var(--ink-soft);
+  opacity: 0.48;
 }
 
 .editor-summary-input {
@@ -1766,6 +1766,264 @@ input[type="range"]::-webkit-slider-thumb {
   height: 4px;
   border-radius: 50%;
   background: var(--accent);
+}
+
+/* ---------------- Editor polish ---------------- */
+
+.editor-main {
+  position: relative;
+}
+
+.editor-main::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 60%, transparent),
+    color-mix(in srgb, var(--accent-2) 42%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.editor-head-fields {
+  position: relative;
+  background: radial-gradient(
+    120% 110% at 8% 0%,
+    color-mix(in srgb, var(--accent) 7%, transparent),
+    transparent 62%
+  );
+}
+
+.editor-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.14em;
+}
+
+.editor-save-state.is-dirty {
+  color: color-mix(in srgb, var(--accent) 82%, var(--ink-faint));
+}
+
+.editor-save-state.is-dirty::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin-right: 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.editor-focus-btn span {
+  white-space: nowrap;
+}
+
+.editor-draft-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  padding: 13px 16px;
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 8%, var(--card-2)),
+    var(--card)
+  );
+}
+
+.editor-draft-banner > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.editor-draft-banner strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.editor-draft-banner span {
+  color: var(--ink-faint);
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+
+.editor-draft-actions {
+  display: flex;
+  gap: 7px;
+  flex: none;
+}
+
+.editor-tools {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.editor-tool-divider {
+  align-self: center;
+  width: 1px;
+  height: 15px;
+  margin: 0 5px;
+  background: var(--line);
+}
+
+.editor-tools button {
+  transition: color 0.2s var(--ease), background 0.2s var(--ease),
+    border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.editor-tools button:hover {
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  transform: translateY(-1px);
+}
+
+.editor-stats-card {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--accent) 5%, var(--card-2)),
+    var(--card)
+  );
+}
+
+.editor-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.editor-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.editor-stats strong {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 1.08rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.editor-stats span {
+  color: var(--ink-faint);
+  font-size: 0.56rem;
+}
+
+.editor-stat-status {
+  display: inline-flex;
+  margin-top: 10px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-faint);
+  font-size: 0.58rem;
+}
+
+.editor-page.is-focus .editor-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.editor-page.is-focus .editor-side {
+  display: none;
+}
+
+.editor-page.is-focus .editor-main {
+  box-shadow: 0 30px 100px -46px color-mix(in srgb, var(--accent) 34%, black);
+}
+
+.editor-page.is-focus .editor-panes {
+  height: calc(100vh - 238px);
+  min-height: 420px;
+}
+
+.editor-textarea::selection,
+.editor-title-input::selection {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.editor-side-card {
+  transition: border-color 0.3s var(--ease), transform 0.3s var(--ease);
+}
+
+.editor-side-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 20%, var(--line));
+}
+
+@media (max-width: 760px) {
+  .editor-topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .editor-topbar-center {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    margin: 0;
+  }
+
+  .editor-topbar-actions {
+    margin-left: auto;
+  }
+
+  .editor-focus-btn span,
+  .editor-preview-link {
+    display: none;
+  }
+
+  .editor-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 14px;
+  }
+
+  .editor-toolbar-note {
+    display: none;
+  }
+
+  .editor-draft-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .editor-draft-actions {
+    width: 100%;
+  }
+
+  .editor-draft-actions .btn {
+    flex: 1;
+  }
+
+  .editor-panes {
+    height: auto;
+    min-height: 460px;
+  }
+
+  .editor-textarea {
+    min-height: 280px;
+  }
+
+  .editor-preview-pane {
+    min-height: 220px;
+  }
 }
 
 .editor-delete {
