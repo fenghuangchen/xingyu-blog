@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { themeStyle } from "@/lib/theme";
 import type { Site, Viewer } from "@/lib/types";
 import { Backdrop } from "./Backdrop";
+import { Companion } from "./Companion";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 
@@ -28,6 +29,7 @@ export function SiteShell({
       <SiteHeader site={site} basePath={basePath} viewer={viewer} />
       <main className="site-main">{children}</main>
       <SiteFooter site={site} basePath={basePath} />
+      <Companion />
     </div>
   );
 }

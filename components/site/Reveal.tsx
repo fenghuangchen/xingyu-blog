@@ -8,9 +8,16 @@ type RevealProps = {
   delay?: number;
   className?: string;
   id?: string;
+  variant?: "up" | "left" | "right" | "scale";
 };
 
-export function Reveal({ children, delay = 0, className, id }: RevealProps) {
+export function Reveal({
+  children,
+  delay = 0,
+  className,
+  id,
+  variant = "up",
+}: RevealProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState(false);
 
@@ -42,6 +49,7 @@ export function Reveal({ children, delay = 0, className, id }: RevealProps) {
       ref={ref}
       id={id}
       className={cn("reveal", shown && "is-in", className)}
+      data-variant={variant}
       style={{ transitionDelay: `${delay}ms` }}
     >
       {children}

@@ -34,7 +34,8 @@ export function HomeView({
 
   return (
     <SiteShell site={site} basePath={basePath} viewer={viewer}>
-      <section className="hero">
+      <section className="hero section-hero">
+        <span className="hero-aura" aria-hidden="true" />
         <div className="hero-left">
           <ProfileCard site={site} basePath={basePath} />
         </div>
@@ -57,8 +58,9 @@ export function HomeView({
         </div>
       </section>
 
-      <Reveal>
-        <section className="section">
+      <Reveal variant="left">
+        <section className="section section-notes">
+          <span className="section-aura aura-notes" aria-hidden="true" />
           <SectionHead
             index="01 / NOTES"
             title="最近写下"
@@ -69,12 +71,13 @@ export function HomeView({
           {recent.length ? (
             <div className="notes-grid">
               {recent.map((note, index) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  basePath={basePath}
-                  index={index}
-                />
+                <div className="note-slot" key={note.id}>
+                  <NoteCard
+                    note={note}
+                    basePath={basePath}
+                    index={index}
+                  />
+                </div>
               ))}
             </div>
           ) : (
@@ -90,8 +93,9 @@ export function HomeView({
         </section>
       </Reveal>
 
-      <Reveal delay={80}>
-        <section className="split section">
+      <Reveal delay={80} variant="up">
+        <section className="split section section-social">
+          <span className="section-aura aura-social" aria-hidden="true" />
           <div className="panel glass">
             <div className="panel-head">
               <div>
@@ -173,8 +177,8 @@ export function HomeView({
         </section>
       </Reveal>
 
-      <Reveal delay={120}>
-        <section className="cta-band glass">
+      <Reveal delay={120} variant="scale">
+        <section className="cta-band cta-live glass">
           <span className="section-kicker">A SMALL INVITATION</span>
           <h2>想在这里，留一句话吗？</h2>
           <p>
