@@ -20,4 +20,4 @@ ENV PORT=3000
 COPY --from=builder /app ./
 EXPOSE 3000
 VOLUME ["/app/data"]
-CMD ["npm", "start"]
+CMD ["node", "server.mjs"]

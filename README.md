@@ -141,6 +141,8 @@ COOKIE_SECURE=false
 
 ## 部署
 
+推荐使用 **Docker Compose + Caddy** 部署，Caddy 会自动申请 HTTPS 证书。完整步骤见 [DEPLOY.md](DEPLOY.md)。
+
 ### 方式一：自有服务器
 
 ```bash

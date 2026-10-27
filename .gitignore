@@ -8,6 +8,8 @@ data/*.db-shm
 data/uploads/
 .env
 .env.local
+.env.production
+.env.production.local
 .env.*.local
 .DS_Store
 *.log
