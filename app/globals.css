@@ -880,3 +880,81 @@ button {
     transform: none;
   }
 }
+
+/* Tactile button feedback */
+
+button:not(:disabled),
+a.btn {
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.24s var(--ease), background-color 0.24s var(--ease),
+    border-color 0.24s var(--ease), color 0.24s var(--ease);
+}
+
+button:not(:disabled):hover,
+a.btn:hover {
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active,
+a.btn:active {
+  transform: scale(0.965);
+}
+
+.icon-btn:hover,
+.mood-btn:hover {
+  transform: rotate(-3deg) scale(1.06);
+}
+
+.section-link:hover {
+  transform: translateX(2px);
+}
+
+.button-pop {
+  animation: buttonPop 0.38s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.has-ripple {
+  position: relative;
+}
+
+.click-ripple {
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.42),
+    rgba(255, 255, 255, 0.08) 42%,
+    transparent 68%
+  );
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  animation: clickRipple 0.58s ease-out forwards;
+}
+
+@keyframes buttonPop {
+  0% {
+    transform: scale(1);
+  }
+  38% {
+    transform: scale(0.965) translateY(1px);
+  }
+  72% {
+    transform: scale(1.025) translateY(-1px);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes clickRipple {
+  from {
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

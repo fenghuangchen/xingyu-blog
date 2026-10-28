@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { InteractionEffects } from "@/components/site/InteractionEffects";
 import "./globals.css";
 import "./styles/site.css";
 import "./styles/reading.css";
@@ -55,7 +56,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        {children}
+        <InteractionEffects />
+      </body>
     </html>
   );
 }
