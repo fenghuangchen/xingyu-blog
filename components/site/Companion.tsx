@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { PetChat } from "./PetChat";
 
 type Mood = "idle" | "happy" | "sleep";
 
@@ -46,7 +47,7 @@ function pickLine(pathname: string): string {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function Companion() {
+export function Companion({ viewerName }: { viewerName?: string }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const happyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,6 +55,7 @@ export function Companion() {
   const pathname = usePathname();
   const [mood, setMood] = useState<Mood>("idle");
   const [bubble, setBubble] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     const el = rootRef.current;
@@ -92,11 +94,11 @@ export function Companion() {
     if (bubbleTimer.current) clearTimeout(bubbleTimer.current);
     if (idleTimer.current) clearTimeout(idleTimer.current);
 
+    setChatOpen(true);
+    setBubble(null);
     setMood("happy");
-    setBubble(pickLine(pathname));
 
     happyTimer.current = setTimeout(() => setMood("idle"), 900);
-    bubbleTimer.current = setTimeout(() => setBubble(null), 4200);
     idleTimer.current = setTimeout(() => {
       setMood("sleep");
       setBubble(null);
@@ -113,7 +115,7 @@ export function Companion() {
       )}
       data-pet="xingyu-cat"
     >
-      {bubble ? (
+      {bubble && !chatOpen ? (
         <div className="pet-bubble" role="status">
           {bubble}
         </div>
@@ -138,8 +140,8 @@ export function Companion() {
         type="button"
         className="pet-button"
         onClick={handleInteract}
-        aria-label={mood === "sleep" ? "叫醒星屿猫" : "和星屿猫互动"}
-        title={mood === "sleep" ? "叫醒星屿猫" : "摸摸星屿猫"}
+        aria-label={mood === "sleep" ? "叫醒星屿猫" : "和星屿猫聊天"}
+        title={mood === "sleep" ? "叫醒星屿猫" : "和星屿猫聊天"}
       >
         <span className="pet-glow" aria-hidden="true" />
         <span className="pet-sprite">
@@ -211,6 +213,15 @@ export function Companion() {
       </button>
 
       <span className="pet-tag">星屿猫</span>
+
+      <PetChat
+        open={chatOpen}
+        onClose={() => {
+          setChatOpen(false);
+          setMood("idle");
+        }}
+        viewerName={viewerName}
+      />
     </div>
   );
 }

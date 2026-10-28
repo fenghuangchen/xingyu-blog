@@ -36,6 +36,15 @@ export function HomeView({
     <SiteShell site={site} basePath={basePath} viewer={viewer}>
       <section className="hero section-hero">
         <span className="hero-aura" aria-hidden="true" />
+        <span className="hero-whisper whisper-a" aria-hidden="true">
+          正在写代码
+        </span>
+        <span className="hero-whisper whisper-b" aria-hidden="true">
+          泡一杯茶
+        </span>
+        <span className="hero-whisper whisper-c" aria-hidden="true">
+          慢慢来，也是在前进
+        </span>
         <div className="hero-left">
           <ProfileCard site={site} basePath={basePath} />
         </div>

@@ -24,6 +24,7 @@ type Dust = {
   driftX: number;
   driftY: number;
   accent: boolean;
+  teal: boolean;
 };
 
 type Meteor = {
@@ -80,8 +81,8 @@ export function DynamicStars() {
         Math.max(80, Math.round((width * height) / 11000)),
       );
       const dustCount = Math.min(
-        36,
-        Math.max(14, Math.round((width * height) / 70000)),
+        40,
+        Math.max(16, Math.round((width * height) / 65000)),
       );
 
       stars = Array.from({ length: starCount }, () => ({
@@ -105,7 +106,8 @@ export function DynamicStars() {
         speed: random(0.12, 0.4),
         driftX: random(-0.08, 0.08),
         driftY: random(-0.09, -0.03),
-        accent: Math.random() < 0.5,
+        accent: Math.random() < 0.35,
+        teal: Math.random() < 0.35,
       }));
     }
 
@@ -208,7 +210,14 @@ export function DynamicStars() {
         const y = particle.y + pointerY * 8;
 
         const glow = ctx.createRadialGradient(x, y, 0, x, y, particle.r * 4);
-        glow.addColorStop(0, particle.accent ? accentColor : starColor);
+        glow.addColorStop(
+          0,
+          particle.accent
+            ? accentColor
+            : particle.teal
+              ? "#7fe3d2"
+              : starColor,
+        );
         glow.addColorStop(1, "rgba(0,0,0,0)");
 
         ctx.globalAlpha = particle.alpha * pulse;

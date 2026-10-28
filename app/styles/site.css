@@ -2776,7 +2776,7 @@
   animation-delay: -9s;
 }
 
-.hero > :not(.hero-aura),
+.hero > :not(.hero-aura):not(.hero-whisper),
 .section > :not(.section-aura) {
   position: relative;
   z-index: 1;
@@ -3175,8 +3175,16 @@
   .companion {
     right: 10px;
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    transform: scale(0.86);
-    transform-origin: bottom right;
+  }
+
+  .pet-button {
+    width: 72px;
+    height: 84px;
+  }
+
+  .pet-sprite {
+    width: 69px;
+    height: 79px;
   }
 
   .pet-bubble {
@@ -4183,5 +4191,394 @@
     width: 100%;
     margin-left: 0;
     justify-content: flex-end;
+  }
+}
+
+/* ---------------- Pointer light & floating whispers ---------------- */
+
+.cursor-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    280px circle at var(--glow-x, 50%) var(--glow-y, 30%),
+    color-mix(in srgb, var(--accent-2) 14%, transparent),
+    color-mix(in srgb, var(--accent) 5%, transparent) 42%,
+    transparent 72%
+  );
+  opacity: 0.62;
+  mix-blend-mode: screen;
+  transition: opacity 0.5s var(--ease);
+}
+
+.hero-whisper {
+  position: absolute;
+  z-index: 0;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.52rem;
+  letter-spacing: 0.18em;
+  opacity: 0.13;
+  pointer-events: none;
+  animation: whisperFloat 18s ease-in-out infinite alternate;
+}
+
+.whisper-a {
+  left: 3%;
+  top: 17%;
+}
+
+.whisper-b {
+  right: 5%;
+  top: 8%;
+  animation-delay: -6s;
+}
+
+.whisper-c {
+  left: 43%;
+  bottom: 8%;
+  animation-delay: -11s;
+}
+
+/* ---------------- Pet chat ---------------- */
+
+.pet-chat {
+  position: fixed;
+  right: 22px;
+  bottom: 128px;
+  z-index: 80;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  width: 350px;
+  height: min(470px, calc(100vh - 170px));
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  box-shadow: 0 30px 80px -34px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  overflow: hidden;
+  animation: petChatIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pet-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 13px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.pet-chat-profile {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.pet-chat-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 10px;
+  background: linear-gradient(145deg, var(--accent), var(--accent-2));
+  color: #261b2b;
+}
+
+.pet-chat-profile > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pet-chat-profile strong {
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.pet-chat-profile span {
+  color: var(--ink-faint);
+  font-size: 0.54rem;
+}
+
+.pet-chat-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-faint);
+  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.pet-chat-close:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.pet-chat-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 13px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.pet-chat-message {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 92%;
+  animation: petMessageIn 0.28s var(--ease) both;
+}
+
+.pet-chat-message.is-user {
+  align-self: flex-end;
+  justify-content: flex-end;
+}
+
+.pet-chat-message > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pet-chat-message.is-user > div {
+  align-items: flex-end;
+}
+
+.pet-chat-message p {
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 3px 13px 13px 13px;
+  background: var(--card-2);
+  color: var(--ink-soft);
+  font-size: 0.73rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pet-chat-message.is-user p {
+  border-color: transparent;
+  border-radius: 13px 3px 13px 13px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 88%, white),
+    color-mix(in srgb, var(--accent-2) 84%, white)
+  );
+  color: #241822;
+}
+
+.pet-chat-message time {
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 0.48rem;
+}
+
+.pet-chat-dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--card-2);
+  color: var(--accent);
+  font-size: 0.62rem;
+}
+
+.pet-typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 3px 13px 13px 13px;
+  background: var(--card-2);
+}
+
+.pet-typing i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: petTyping 1.1s ease-in-out infinite;
+}
+
+.pet-typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.pet-typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.pet-chat-prompts {
+  display: flex;
+  gap: 5px;
+  padding: 0 12px 9px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pet-chat-prompts::-webkit-scrollbar {
+  display: none;
+}
+
+.pet-chat-prompts button {
+  flex: none;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 0.58rem;
+  transition: color 0.2s var(--ease), background 0.2s var(--ease),
+    border-color 0.2s var(--ease);
+}
+
+.pet-chat-prompts button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.pet-chat-composer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px 11px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 18%, transparent);
+}
+
+.pet-chat-composer input {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.72rem;
+  outline: none;
+}
+
+.pet-chat-composer input:focus {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+}
+
+.pet-chat-composer input::placeholder {
+  color: var(--ink-faint);
+}
+
+.pet-chat-composer button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 0;
+  border-radius: 9px;
+  background: linear-gradient(145deg, var(--accent), var(--accent-2));
+  color: #20151f;
+}
+
+.pet-chat-composer button:disabled {
+  opacity: 0.4;
+}
+
+@media (hover: none) {
+  .cursor-glow {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-whisper {
+    display: none;
+  }
+
+  .pet-chat {
+    right: 10px;
+    bottom: 104px;
+    width: calc(100vw - 20px);
+    height: min(62vh, 480px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-glow {
+    display: none;
+  }
+
+  .hero-whisper,
+  .pet-chat,
+  .pet-chat-message,
+  .pet-typing i {
+    animation: none !important;
+  }
+}
+
+@keyframes whisperFloat {
+  from {
+    transform: translate3d(-6px, 4px, 0);
+    opacity: 0.08;
+  }
+  to {
+    transform: translate3d(12px, -8px, 0);
+    opacity: 0.19;
+  }
+}
+
+@keyframes petChatIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes petMessageIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes petTyping {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
   }
 }

@@ -3,6 +3,7 @@ import { themeStyle } from "@/lib/theme";
 import type { Site, Viewer } from "@/lib/types";
 import { Backdrop } from "./Backdrop";
 import { Companion } from "./Companion";
+import { CursorGlow } from "./CursorGlow";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 
@@ -26,10 +27,11 @@ export function SiteShell({
       style={themeStyle(site.theme)}
     >
       <Backdrop stars={site.theme.stars} />
+      <CursorGlow />
       <SiteHeader site={site} basePath={basePath} viewer={viewer} />
       <main className="site-main">{children}</main>
       <SiteFooter site={site} basePath={basePath} />
-      <Companion />
+      <Companion viewerName={viewer?.displayName} />
     </div>
   );
 }
