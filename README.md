@@ -201,6 +201,25 @@ docker run -d --name xingyu-blog \
 - [ ] 自定义域名
 - [ ] 邮件通知与 OAuth 登录
 
+## 日常启动
+
+Windows 上双击项目根目录的：
+
+```text
+启动星屿网站.cmd
+```
+
+脚本会自动：
+
+- 启动本地站点
+- 打开 `http://localhost:3000`
+- 生成一个临时公网地址（写在窗口和 `logs/public-url.txt`）
+- 首次运行会自动下载 `cloudflared`
+
+停止站点：双击 `停止星屿网站.cmd`。
+
+> 免费临时公网地址每次重启都会变。要固定地址，需要域名 + Cloudflare Named Tunnel，或者部署到 VPS（见 [DEPLOY.md](DEPLOY.md)）。
+
 ## 日常更新
 
 ### 只更新内容（最常用）

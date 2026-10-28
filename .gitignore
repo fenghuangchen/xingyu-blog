@@ -11,6 +11,8 @@ data/uploads/
 .env.production
 .env.production.local
 .env.*.local
+logs/
+tools/cloudflared.exe
 .DS_Store
 *.log
 next-env.d.ts
