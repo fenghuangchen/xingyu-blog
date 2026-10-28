@@ -13,6 +13,7 @@ import {
   Plus,
   Settings,
   Sparkles,
+  Users,
   X,
 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
@@ -30,6 +31,7 @@ const NAV = [
     icon: MessageSquare,
     exact: false,
   },
+  { href: "/studio/friends", label: "好友", icon: Users, exact: false },
   { href: "/studio/settings", label: "站点设置", icon: Settings, exact: false },
 ];
 
@@ -37,11 +39,13 @@ export function StudioShell({
   site,
   viewer,
   publicPath,
+  friendAlerts = 0,
   children,
 }: {
   site: Site;
   viewer: Viewer;
   publicPath: string;
+  friendAlerts?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -120,6 +124,11 @@ export function StudioShell({
               >
                 <Icon size={17} />
                 <span>{item.label}</span>
+                {item.href === "/studio/friends" && friendAlerts > 0 ? (
+                  <span className="studio-nav-badge">
+                    {friendAlerts > 9 ? "9+" : friendAlerts}
+                  </span>
+                ) : null}
                 {active ? <span className="studio-nav-dot" /> : null}
               </Link>
             );

@@ -130,3 +130,38 @@ export type CreatorCard = {
   createdAt: string;
   stats: SiteStats;
 };
+
+export type FriendRelation = "friends" | "pending_in" | "pending_out" | "none";
+
+export type FriendUser = {
+  id: string;
+  handle: string;
+  displayName: string;
+  avatar: string;
+  tagline: string;
+  relation: FriendRelation;
+  requestId: string | null;
+  unread: number;
+};
+
+export type FriendState = {
+  friends: FriendUser[];
+  incoming: FriendUser[];
+  outgoing: FriendUser[];
+  unread: number;
+};
+
+export type FriendMessage = {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  createdAt: string;
+  readAt: string | null;
+};
+
+export type FriendMoment = Moment & {
+  authorName: string;
+  authorHandle: string;
+  authorAvatar: string;
+};

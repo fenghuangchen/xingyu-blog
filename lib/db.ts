@@ -16,6 +16,10 @@ import {
 import { parseTheme } from "./theme";
 import type {
   CreatorCard,
+  FriendMessage,
+  FriendMoment,
+  FriendState,
+  FriendUser,
   Message,
   Moment,
   Note,
@@ -236,6 +240,37 @@ function createSchema(db: DatabaseSync) {
 
     CREATE INDEX IF NOT EXISTS idx_likes_target
       ON likes(target_type, target_id);
+
+    CREATE TABLE IF NOT EXISTS friendships (
+      id TEXT PRIMARY KEY,
+      requester_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      addressee_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(requester_id, addressee_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_friendships_requester
+      ON friendships(requester_id, status);
+
+    CREATE INDEX IF NOT EXISTS idx_friendships_addressee
+      ON friendships(addressee_id, status);
+
+    CREATE TABLE IF NOT EXISTS friend_messages (
+      id TEXT PRIMARY KEY,
+      sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      receiver_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      read_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_friend_messages_receiver
+      ON friend_messages(receiver_id, read_at, created_at);
+
+    CREATE INDEX IF NOT EXISTS idx_friend_messages_pair
+      ON friend_messages(sender_id, receiver_id, created_at);
   `);
 }
 
@@ -993,6 +1028,363 @@ export function createMessage(input: {
 export function deleteMessage(id: string): boolean {
   const result = getDb().prepare("DELETE FROM messages WHERE id = ?").run(id);
   return Number(result.changes) > 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Friends                                                            */
+/* ------------------------------------------------------------------ */
+
+type FriendshipRow = {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+function getFriendshipRow(userA: string, userB: string): FriendshipRow | null {
+  const row = getDb()
+    .prepare(
+      `SELECT * FROM friendships
+       WHERE (requester_id = ? AND addressee_id = ?)
+          OR (requester_id = ? AND addressee_id = ?)
+       LIMIT 1`,
+    )
+    .get(userA, userB, userB, userA) as Row | undefined;
+  return row ? (row as unknown as FriendshipRow) : null;
+}
+
+function mapFriendUser(
+  user: UserRecord,
+  relation: FriendUser["relation"],
+  requestId: string | null,
+  unread = 0,
+): FriendUser {
+  return {
+    id: user.id,
+    handle: user.handle,
+    displayName: user.displayName,
+    avatar: user.avatar,
+    tagline: user.tagline,
+    relation,
+    requestId,
+    unread,
+  };
+}
+
+function relationFor(
+  currentUserId: string,
+  otherUserId: string,
+): { relation: FriendUser["relation"]; requestId: string | null } {
+  const row = getFriendshipRow(currentUserId, otherUserId);
+  if (!row) return { relation: "none", requestId: null };
+  if (row.status === "accepted") return { relation: "friends", requestId: null };
+  if (row.requester_id === currentUserId) {
+    return { relation: "pending_out", requestId: row.id };
+  }
+  return { relation: "pending_in", requestId: row.id };
+}
+
+export function searchUsersForFriend(
+  currentUserId: string,
+  rawQuery: string,
+): FriendUser[] {
+  const query = rawQuery.trim().slice(0, 40);
+  if (!query) return [];
+
+  const like = `%${escapeLike(query)}%`;
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM users
+       WHERE id != ?
+         AND (display_name LIKE ? ESCAPE '!' OR handle LIKE ? ESCAPE '!')
+       ORDER BY display_name COLLATE NOCASE ASC
+       LIMIT 8`,
+    )
+    .all(currentUserId, like, like) as Row[];
+
+  return rows.map((row) => {
+    const user = mapUser(row);
+    const relation = relationFor(currentUserId, user.id);
+    return mapFriendUser(user, relation.relation, relation.requestId);
+  });
+}
+
+export function listFriendState(currentUserId: string): FriendState {
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM friendships
+       WHERE requester_id = ? OR addressee_id = ?
+       ORDER BY updated_at DESC`,
+    )
+    .all(currentUserId, currentUserId) as Row[];
+
+  const unreadRows = getDb()
+    .prepare(
+      `SELECT sender_id, COUNT(*) AS count
+       FROM friend_messages
+       WHERE receiver_id = ? AND read_at IS NULL
+       GROUP BY sender_id`,
+    )
+    .all(currentUserId) as Row[];
+
+  const unreadByFriend = new Map<string, number>();
+  for (const row of unreadRows) {
+    unreadByFriend.set(text(row.sender_id), int(row.count));
+  }
+
+  const friends: FriendUser[] = [];
+  const incoming: FriendUser[] = [];
+  const outgoing: FriendUser[] = [];
+
+  for (const raw of rows) {
+    const row = raw as unknown as FriendshipRow;
+    const otherId =
+      row.requester_id === currentUserId
+        ? row.addressee_id
+        : row.requester_id;
+    const user = getUserById(otherId);
+    if (!user) continue;
+
+    if (row.status === "accepted") {
+      friends.push(
+        mapFriendUser(
+          user,
+          "friends",
+          null,
+          unreadByFriend.get(otherId) ?? 0,
+        ),
+      );
+    } else if (row.addressee_id === currentUserId) {
+      incoming.push(
+        mapFriendUser(user, "pending_in", row.id),
+      );
+    } else {
+      outgoing.push(
+        mapFriendUser(user, "pending_out", row.id),
+      );
+    }
+  }
+
+  friends.sort((a, b) => a.displayName.localeCompare(b.displayName, "zh-CN"));
+
+  return {
+    friends,
+    incoming,
+    outgoing,
+    unread: friends.reduce((total, friend) => total + friend.unread, 0),
+  };
+}
+
+export function sendFriendRequest(
+  currentUserId: string,
+  targetUserId: string,
+): { ok: true; status: "pending" | "friends" } | { ok: false; error: string } {
+  if (currentUserId === targetUserId) {
+    return { ok: false, error: "不能加自己为好友。" };
+  }
+
+  const target = getUserById(targetUserId);
+  if (!target) {
+    return { ok: false, error: "找不到这位岛主。" };
+  }
+
+  const existing = getFriendshipRow(currentUserId, targetUserId);
+  if (existing) {
+    if (existing.status === "accepted") {
+      return { ok: true, status: "friends" };
+    }
+
+    if (existing.requester_id === currentUserId) {
+      return { ok: true, status: "pending" };
+    }
+
+    // 对方已经发来申请：这次点击直接接受
+    getDb()
+      .prepare(
+        "UPDATE friendships SET status = 'accepted', updated_at = ? WHERE id = ?",
+      )
+      .run(new Date().toISOString(), existing.id);
+    return { ok: true, status: "friends" };
+  }
+
+  const now = new Date().toISOString();
+  getDb()
+    .prepare(
+      `INSERT INTO friendships
+        (id, requester_id, addressee_id, status, created_at, updated_at)
+       VALUES (?, ?, ?, 'pending', ?, ?)`,
+    )
+    .run(`f_${randomUUID()}`, currentUserId, targetUserId, now, now);
+
+  return { ok: true, status: "pending" };
+}
+
+export function respondFriendRequest(
+  currentUserId: string,
+  requestId: string,
+  action: "accept" | "decline",
+): boolean {
+  const row = getDb()
+    .prepare(
+      `SELECT * FROM friendships
+       WHERE id = ? AND addressee_id = ? AND status = 'pending'`,
+    )
+    .get(requestId, currentUserId) as Row | undefined;
+
+  if (!row) return false;
+
+  if (action === "accept") {
+    getDb()
+      .prepare(
+        "UPDATE friendships SET status = 'accepted', updated_at = ? WHERE id = ?",
+      )
+      .run(new Date().toISOString(), requestId);
+  } else {
+    getDb().prepare("DELETE FROM friendships WHERE id = ?").run(requestId);
+  }
+
+  return true;
+}
+
+export function removeFriend(currentUserId: string, friendUserId: string): boolean {
+  const result = getDb()
+    .prepare(
+      `DELETE FROM friendships
+       WHERE (requester_id = ? AND addressee_id = ?)
+          OR (requester_id = ? AND addressee_id = ?)`,
+    )
+    .run(currentUserId, friendUserId, friendUserId, currentUserId);
+
+  getDb()
+    .prepare(
+      `DELETE FROM friend_messages
+       WHERE (sender_id = ? AND receiver_id = ?)
+          OR (sender_id = ? AND receiver_id = ?)`,
+    )
+    .run(currentUserId, friendUserId, friendUserId, currentUserId);
+
+  return Number(result.changes) > 0;
+}
+
+export function areFriends(userA: string, userB: string): boolean {
+  const row = getFriendshipRow(userA, userB);
+  return Boolean(row && row.status === "accepted");
+}
+
+function mapFriendMessage(row: Row): FriendMessage {
+  return {
+    id: text(row.id),
+    senderId: text(row.sender_id),
+    receiverId: text(row.receiver_id),
+    content: text(row.content),
+    createdAt: text(row.created_at),
+    readAt: row.read_at ? text(row.read_at) : null,
+  };
+}
+
+export function listFriendMessages(
+  currentUserId: string,
+  friendUserId: string,
+  limit = 80,
+): FriendMessage[] | null {
+  if (!areFriends(currentUserId, friendUserId)) return null;
+
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM (
+         SELECT * FROM friend_messages
+         WHERE (sender_id = ? AND receiver_id = ?)
+            OR (sender_id = ? AND receiver_id = ?)
+         ORDER BY created_at DESC
+         LIMIT ?
+       ) ORDER BY created_at ASC`,
+    )
+    .all(
+      currentUserId,
+      friendUserId,
+      friendUserId,
+      currentUserId,
+      limit,
+    ) as Row[];
+
+  getDb()
+    .prepare(
+      `UPDATE friend_messages
+       SET read_at = ?
+       WHERE receiver_id = ? AND sender_id = ? AND read_at IS NULL`,
+    )
+    .run(new Date().toISOString(), currentUserId, friendUserId);
+
+  return rows.map(mapFriendMessage);
+}
+
+export function sendFriendMessage(
+  currentUserId: string,
+  friendUserId: string,
+  content: string,
+): FriendMessage | null {
+  if (!areFriends(currentUserId, friendUserId)) return null;
+
+  const trimmed = content.trim().slice(0, 2000);
+  if (!trimmed) return null;
+
+  const id = `fm_${randomUUID()}`;
+  const createdAt = new Date().toISOString();
+
+  getDb()
+    .prepare(
+      `INSERT INTO friend_messages
+        (id, sender_id, receiver_id, content, created_at, read_at)
+       VALUES (?, ?, ?, ?, ?, NULL)`,
+    )
+    .run(id, currentUserId, friendUserId, trimmed, createdAt);
+
+  const row = getDb()
+    .prepare("SELECT * FROM friend_messages WHERE id = ?")
+    .get(id) as Row;
+  return mapFriendMessage(row);
+}
+
+export function listFriendMoments(
+  currentUserId: string,
+  limit = 16,
+): FriendMoment[] {
+  const friendRows = getDb()
+    .prepare(
+      `SELECT CASE
+         WHEN requester_id = ? THEN addressee_id
+         ELSE requester_id
+       END AS friend_id
+       FROM friendships
+       WHERE status = 'accepted'
+         AND (requester_id = ? OR addressee_id = ?)`,
+    )
+    .all(currentUserId, currentUserId, currentUserId) as Row[];
+
+  const friendIds = friendRows.map((row) => text(row.friend_id)).filter(Boolean);
+  if (!friendIds.length) return [];
+
+  const placeholders = friendIds.map(() => "?").join(", ");
+  const rows = getDb()
+    .prepare(
+      `SELECT m.*, u.display_name AS author_name,
+              u.handle AS author_handle, u.avatar AS author_avatar
+       FROM moments m
+       JOIN users u ON u.id = m.user_id
+       WHERE m.user_id IN (${placeholders})
+       ORDER BY m.created_at DESC
+       LIMIT ?`,
+    )
+    .all(...friendIds, limit) as Row[];
+
+  return rows.map((row) => ({
+    ...mapMoment(row),
+    authorName: text(row.author_name),
+    authorHandle: text(row.author_handle),
+    authorAvatar: text(row.author_avatar),
+  }));
 }
 
 /* ------------------------------------------------------------------ */
