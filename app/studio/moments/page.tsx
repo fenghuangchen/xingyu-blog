@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 import { DeleteMomentButton } from "@/components/studio/DeleteMomentButton";
+import { MomentVisibilitySelect } from "@/components/studio/MomentVisibilitySelect";
 import { MomentComposer } from "@/components/site/MomentComposer";
 import { requireViewer } from "@/lib/auth";
 import { listMoments } from "@/lib/db";
@@ -49,6 +50,10 @@ export default async function StudioMomentsPage() {
                     <span>{timeAgo(moment.createdAt)}</span>
                   </div>
                 </div>
+                <MomentVisibilitySelect
+                  momentId={moment.id}
+                  visibility={moment.visibility}
+                />
                 <DeleteMomentButton momentId={moment.id} />
               </article>
             ))}

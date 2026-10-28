@@ -101,6 +101,11 @@ export function MomentsWall({ moments }: { moments: Moment[] }) {
                     <p>{moment.content}</p>
                     <div className="moment-card-foot">
                       <span>{month}</span>
+                      {moment.visibility !== "public" ? (
+                        <span className="moment-card-privacy">
+                          {moment.visibility === "private" ? "仅自己" : "好友可见"}
+                        </span>
+                      ) : null}
                       <span>NO. {String(index + 1).padStart(2, "0")}</span>
                     </div>
                   </article>

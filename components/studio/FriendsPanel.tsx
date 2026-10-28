@@ -650,6 +650,9 @@ export function FriendsPanel({
                 <time dateTime={moment.createdAt}>
                   {formatDateTime(moment.createdAt)}
                 </time>
+                {moment.visibility !== "public" ? (
+                  <span className="friend-moment-privacy">好友可见</span>
+                ) : null}
               </Link>
             ))}
           </div>

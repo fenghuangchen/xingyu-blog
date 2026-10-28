@@ -1597,6 +1597,8 @@ input[type="range"]::-webkit-slider-thumb {
   line-height: 1.95;
   resize: none;
   outline: none;
+  caret-color: var(--accent);
+  scroll-behavior: smooth;
 }
 
 .editor-textarea::placeholder {
@@ -1612,6 +1614,7 @@ input[type="range"]::-webkit-slider-thumb {
   border-left: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg) 18%, transparent);
   overflow-y: auto;
+  scroll-behavior: smooth;
 }
 
 .editor-preview-label {
@@ -2795,5 +2798,40 @@ input[type="range"]::-webkit-slider-thumb {
 
   .friends-chat {
     height: 540px;
+  }
+}
+
+.moment-visibility-select {
+  flex: none;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: 0.6rem;
+  outline: none;
+}
+
+.moment-visibility-select:disabled {
+  opacity: 0.55;
+}
+
+.friend-moment-privacy {
+  align-self: flex-start;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, #7fe3d2 25%, var(--line));
+  border-radius: 999px;
+  color: #9cebdc;
+  font-family: var(--mono);
+  font-size: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .studio-moment-row {
+    flex-wrap: wrap;
+  }
+
+  .moment-visibility-select {
+    margin-left: auto;
   }
 }

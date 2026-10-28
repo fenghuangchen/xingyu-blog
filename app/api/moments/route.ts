@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getViewer } from "@/lib/auth";
 import { createMoment, deleteMoment } from "@/lib/db";
+import type { MomentVisibility } from "@/lib/types";
 import { cleanText } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -22,12 +23,18 @@ export async function POST(request: Request) {
 
   const content = cleanText(body.content, 500);
   const mood = cleanText(body.mood, 8);
+  const visibility: MomentVisibility =
+    body.visibility === "private"
+      ? "private"
+      : body.visibility === "friends"
+        ? "friends"
+        : "public";
 
   if (!content) {
     return NextResponse.json({ error: "写点什么再发布吧。" }, { status: 400 });
   }
 
-  const moment = createMoment(viewer.id, { content, mood });
+  const moment = createMoment(viewer.id, { content, mood, visibility });
   return NextResponse.json({ ok: true, moment });
 }
 

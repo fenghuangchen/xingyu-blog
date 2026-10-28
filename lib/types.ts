@@ -87,11 +87,14 @@ export type Note = {
 
 export type NoteSummary = Omit<Note, "content">;
 
+export type MomentVisibility = "private" | "friends" | "public";
+
 export type Moment = {
   id: string;
   userId: string;
   content: string;
   mood: string;
+  visibility: MomentVisibility;
   createdAt: string;
 };
 

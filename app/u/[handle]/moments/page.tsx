@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MomentsView } from "@/components/site/MomentsView";
 import { getViewer } from "@/lib/auth";
-import { getSite, listMoments } from "@/lib/db";
+import { getSite, listVisibleMoments } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export default async function UserMomentsPage({
   if (!site) notFound();
 
   const viewer = await getViewer();
-  const moments = listMoments(site.id, 100);
+  const moments = listVisibleMoments(site.id, viewer?.id ?? null, 100);
 
   return (
     <MomentsView

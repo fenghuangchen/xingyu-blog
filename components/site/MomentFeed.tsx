@@ -1,6 +1,14 @@
 import { timeAgo } from "@/lib/utils";
 import type { Moment } from "@/lib/types";
 
+function visibilityText(moment: Moment): string {
+  return moment.visibility === "private"
+    ? "仅自己"
+    : moment.visibility === "friends"
+      ? "好友可见"
+      : "共同可见";
+}
+
 export function MomentItem({ moment }: { moment: Moment }) {
   return (
     <article className="moment-item">
@@ -17,6 +25,12 @@ export function MomentItem({ moment }: { moment: Moment }) {
               day: "numeric",
               timeZone: "Asia/Shanghai",
             }).format(new Date(moment.createdAt))}
+          </span>
+          <span
+            className={`moment-privacy-tag is-${moment.visibility}`}
+            title={`可见范围：${visibilityText(moment)}`}
+          >
+            {visibilityText(moment)}
           </span>
         </div>
         <p>{moment.content}</p>

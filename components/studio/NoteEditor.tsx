@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import {
   Check,
   ChevronLeft,
@@ -150,6 +150,7 @@ export function NoteEditor({
 
   const minutes = estimateReadingMinutes(content);
   const chars = content.replace(/\s/g, "").length;
+  const deferredContent = useDeferredValue(content);
   const tagCount = normalizeTags(tagsText).length;
   const draftKey = initial ? `xingyu:note-draft:${initial.id}` : NEW_DRAFT_KEY;
   const isDirty = initial
@@ -179,7 +180,7 @@ export function NoteEditor({
     : null;
 
   useEffect(() => {
-    if (!content.trim()) {
+    if (!deferredContent.trim()) {
       setPreviewHtml("");
       return;
     }
@@ -192,7 +193,7 @@ export function NoteEditor({
         const response = await fetch("/api/preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content: deferredContent }),
           signal: controller.signal,
         });
         if (!response.ok) return;
@@ -210,7 +211,7 @@ export function NoteEditor({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [content]);
+  }, [deferredContent]);
 
   useEffect(() => {
     if (!saved) return;
@@ -848,6 +849,9 @@ export function NoteEditor({
                   event.preventDefault();
                   insertSnippet("[", "](https://)", "链接文字");
                 } else if (key === "s") {
+                  event.preventDefault();
+                  void handleSave();
+                } else if (key === "enter") {
                   event.preventDefault();
                   void handleSave();
                 }

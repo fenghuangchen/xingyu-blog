@@ -22,6 +22,7 @@ import type {
   FriendUser,
   Message,
   Moment,
+  MomentVisibility,
   Note,
   NoteStatus,
   NoteSummary,
@@ -125,11 +126,18 @@ function mapNoteSummary(row: Row): NoteSummary {
 }
 
 function mapMoment(row: Row): Moment {
+  const visibility =
+    text(row.visibility) === "private"
+      ? "private"
+      : text(row.visibility) === "friends"
+        ? "friends"
+        : "public";
   return {
     id: text(row.id),
     userId: text(row.user_id),
     content: text(row.content),
     mood: text(row.mood),
+    visibility,
     createdAt: text(row.created_at),
   };
 }
@@ -205,6 +213,7 @@ function createSchema(db: DatabaseSync) {
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL,
       mood TEXT NOT NULL DEFAULT '',
+      visibility TEXT NOT NULL DEFAULT 'public',
       created_at TEXT NOT NULL
     );
 
@@ -421,6 +430,16 @@ function initDatabase(): DatabaseSync {
     if (!userColumnNames.has(name)) {
       db.exec(`ALTER TABLE users ADD COLUMN ${name} ${definition}`);
     }
+  }
+
+  const momentColumns = db.prepare("PRAGMA table_info(moments)").all() as Row[];
+  const momentColumnNames = new Set(
+    momentColumns.map((column) => text(column.name)),
+  );
+  if (!momentColumnNames.has("visibility")) {
+    db.exec(
+      "ALTER TABLE moments ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public'",
+    );
   }
 
   db.exec(
@@ -943,20 +962,59 @@ export function listMoments(userId: string, limit = 50): Moment[] {
   return rows.map(mapMoment);
 }
 
+export function listVisibleMoments(
+  userId: string,
+  viewerId: string | null,
+  limit = 50,
+): Moment[] {
+  if (viewerId === userId) return listMoments(userId, limit);
+
+  const friends = viewerId ? areFriends(userId, viewerId) : false;
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM moments
+       WHERE user_id = ?
+         AND (visibility = 'public' OR (visibility = 'friends' AND ? = 1))
+       ORDER BY created_at DESC
+       LIMIT ?`,
+    )
+    .all(userId, friends ? 1 : 0, limit) as Row[];
+  return rows.map(mapMoment);
+}
+
 export function createMoment(
   userId: string,
-  input: { content: string; mood: string },
+  input: { content: string; mood: string; visibility?: MomentVisibility },
 ): Moment {
   const id = `m_${randomUUID()}`;
   const createdAt = new Date().toISOString();
+  const visibility = input.visibility ?? "public";
 
   getDb()
     .prepare(
-      `INSERT INTO moments (id, user_id, content, mood, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO moments (id, user_id, content, mood, visibility, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .run(id, userId, input.content, input.mood, createdAt);
+    .run(id, userId, input.content, input.mood, visibility, createdAt);
 
+  const row = getDb()
+    .prepare("SELECT * FROM moments WHERE id = ?")
+    .get(id) as Row;
+  return mapMoment(row);
+}
+
+export function updateMomentVisibility(
+  userId: string,
+  id: string,
+  visibility: MomentVisibility,
+): Moment | null {
+  const result = getDb()
+    .prepare(
+      "UPDATE moments SET visibility = ? WHERE id = ? AND user_id = ?",
+    )
+    .run(visibility, id, userId);
+
+  if (Number(result.changes) === 0) return null;
   const row = getDb()
     .prepare("SELECT * FROM moments WHERE id = ?")
     .get(id) as Row;
@@ -1374,6 +1432,7 @@ export function listFriendMoments(
        FROM moments m
        JOIN users u ON u.id = m.user_id
        WHERE m.user_id IN (${placeholders})
+         AND m.visibility IN ('public', 'friends')
        ORDER BY m.created_at DESC
        LIMIT ?`,
     )

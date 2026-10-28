@@ -5,8 +5,8 @@ import { getViewer } from "@/lib/auth";
 import {
   getOwnerSite,
   listMessages,
-  listMoments,
   listPublishedNotes,
+  listVisibleMoments,
 } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export default async function HomePage() {
 
   const viewer = await getViewer();
   const notes = listPublishedNotes(site.id, 7);
-  const moments = listMoments(site.id, 6);
+  const moments = listVisibleMoments(site.id, viewer?.id ?? null, 6);
   const messages = listMessages(site.id, 4);
 
   return (

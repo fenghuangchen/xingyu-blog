@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Loader2, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { MomentVisibility } from "@/lib/types";
 
 const MOODS = ["☕", "🌙", "✨", "🍵", "📖", "🍂"];
 
@@ -15,8 +16,10 @@ export function MomentComposer({
   variant?: "site" | "studio";
 }) {
   const router = useRouter();
+  const visibilityId = useId();
   const [content, setContent] = useState("");
   const [mood, setMood] = useState("☕");
+  const [visibility, setVisibility] = useState<MomentVisibility>("public");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
@@ -33,7 +36,7 @@ export function MomentComposer({
       const response = await fetch("/api/moments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, mood }),
+        body: JSON.stringify({ content, mood, visibility }),
       });
 
       if (!response.ok) {
@@ -45,6 +48,7 @@ export function MomentComposer({
       }
 
       setContent("");
+      setVisibility("public");
       setSent(true);
       router.refresh();
     } catch {
@@ -83,6 +87,22 @@ export function MomentComposer({
             </button>
           ))}
         </div>
+
+        <label className="composer-visibility" htmlFor={visibilityId}>
+          <span>可见</span>
+          <select
+            id={visibilityId}
+            value={visibility}
+            onChange={(event) =>
+              setVisibility(event.target.value as MomentVisibility)
+            }
+            aria-label="动态可见范围"
+          >
+            <option value="public">共同可见</option>
+            <option value="friends">好友可见</option>
+            <option value="private">仅自己</option>
+          </select>
+        </label>
 
         <div className="composer-actions">
           <span className="composer-count">{content.length}/500</span>

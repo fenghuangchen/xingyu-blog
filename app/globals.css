@@ -675,6 +675,22 @@ button {
   transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
 }
 
+.page-transition {
+  animation: pageFadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition {
+    animation: none;
+  }
+}
+
 .reveal.is-in {
   opacity: 1;
   transform: none;
@@ -811,6 +827,15 @@ button {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

@@ -89,6 +89,10 @@ export const COVER_OPTIONS = [
   { id: "bloom", name: "花雾" },
   { id: "dunes", name: "沙丘" },
   { id: "prism", name: "棱镜" },
+  { id: "aurora", name: "极光" },
+  { id: "ember", name: "余烬" },
+  { id: "tide", name: "潮汐" },
+  { id: "ink", name: "墨山" },
 ];
 
 export function isCoverId(value: unknown): boolean {
